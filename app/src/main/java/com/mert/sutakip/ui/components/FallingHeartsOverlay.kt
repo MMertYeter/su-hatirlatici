@@ -8,28 +8,55 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.rotate
+import kotlin.math.floor
 import kotlin.math.sin
 import kotlin.random.Random
 
-private data class DusenKalp(
-    val xOrani: Float,      // 0f..1f, ekran genişliğine göre yatay konum
-    val baslangicGecikmesi: Float, // 0f..1f, düşüşün ne kadar geç başlayacağı
-    val boyut: Float,       // dp cinsinden kalp boyutu
-    val hiz: Float,         // görece düşüş hızı çarpanı
+private class DusenKalp(
+    val xOrani: Float,
+    val baslangicGecikmesi: Float,
+    val boyut: Float,
+    val hiz: Float,
     val renk: Color,
-    val sallanmaFazi: Float // yana sallanma animasyonu için faz kayması
+    val sallanmaFazi: Float
 )
+
+private fun rastgeleKalpler(adet: Int): List<DusenKalp> {
+    val renkler = listOf(
+        Color(0xFFFF6B81),
+        Color(0xFFFF4D6D),
+        Color(0xFFFF8FA3),
+        Color(0xFFE63950),
+        Color(0xFFFFA1AD)
+    )
+    val sonuc = ArrayList<DusenKalp>(adet)
+    var i = 0
+    while (i < adet) {
+        sonuc.add(
+            DusenKalp(
+                xOrani = Random.nextFloat(),
+                baslangicGecikmesi = Random.nextFloat() * 0.6f,
+                boyut = 14f + Random.nextFloat() * 16f,
+                hiz = 0.7f + Random.nextFloat() * 0.6f,
+                renk = renkler[Random.nextInt(renkler.size)],
+                sallanmaFazi = Random.nextFloat() * 6.28f
+            )
+        )
+        i++
+    }
+    return sonuc
+}
 
 /**
  * Ekranın üstünden aşağı doğru düşen kalpler efekti. `visible` true olduğu sürece
- * sürekli döngüde kalpler üretir; çağıran taraf (örn. LaunchedEffect ile 2-3 saniye
- * sonra) `visible`'ı false yaparak efekti durdurur/kaldırır.
+ * sürekli döngüde kalpler üretir; çağıran taraf efekti kaldırmak istediğinde
+ * `visible`'ı false yapar (bu composable o an ekrandan kalkar).
  */
 @Composable
 fun FallingHeartsOverlay(
@@ -38,26 +65,7 @@ fun FallingHeartsOverlay(
 ) {
     if (!visible) return
 
-    val kalpRenkleri = listOf(
-        Color(0xFFFF6B81),
-        Color(0xFFFF4D6D),
-        Color(0xFFFF8FA3),
-        Color(0xFFE63950),
-        Color(0xFFFFA1AD)
-    )
-
-    val kalpler = remember {
-        List(28) {
-            DusenKalp(
-                xOrani = Random.nextFloat(),
-                baslangicGecikmesi = Random.nextFloat() * 0.6f,
-                boyut = Random.nextInt(14, 30).toFloat(),
-                hiz = 0.7f + Random.nextFloat() * 0.6f,
-                renk = kalpRenkleri.random(),
-                sallanmaFazi = Random.nextFloat() * 6.28f
-            )
-        }
-    }
+    val kalpler = remember { rastgeleKalpler(28) }
 
     val infiniteTransition = rememberInfiniteTransition(label = "fallingHearts")
     val ilerleme by infiniteTransition.animateFloat(
@@ -73,51 +81,39 @@ fun FallingHeartsOverlay(
         val genislik = size.width
         val yukseklik = size.height
 
-        kalpler.forEach { kalp ->
-            // Her kalp kendi gecikmesiyle başlar, döngü boyunca yukarıdan aşağı iner.
+        for (kalp in kalpler) {
             var localProgress = (ilerleme - kalp.baslangicGecikmesi) * kalp.hiz
-            localProgress = localProgress - kotlin.math.floor(localProgress) // 0f..1f döngüsü
+            localProgress -= floor(localProgress)
 
-            val y = -kalp.boyut + localProgress * (yukseklik + kalp.boyut * 2)
+            val y = -kalp.boyut + localProgress * (yukseklik + kalp.boyut * 2f)
             val sallanma = sin(localProgress * 10f + kalp.sallanmaFazi) * 18f
             val x = kalp.xOrani * genislik + sallanma
 
-            val alpha = when {
-                localProgress < 0.08f -> localProgress / 0.08f
-                localProgress > 0.85f -> (1f - localProgress) / 0.15f
-                else -> 1f
-            }.coerceIn(0f, 1f)
-
-            rotate(degrees = sallanma, pivot = Offset(x, y)) {
-                drawKalp(
-                    merkez = Offset(x, y),
-                    boyut = kalp.boyut,
-                    renk = kalp.renk.copy(alpha = kalp.renk.alpha * alpha)
-                )
+            var alpha = 1f
+            if (localProgress < 0.08f) {
+                alpha = localProgress / 0.08f
+            } else if (localProgress > 0.85f) {
+                alpha = (1f - localProgress) / 0.15f
             }
+            if (alpha < 0f) alpha = 0f
+            if (alpha > 1f) alpha = 1f
+
+            val yariBoyut = kalp.boyut / 2f
+            val yol = Path()
+            yol.moveTo(x, y + yariBoyut)
+            yol.cubicTo(
+                x - kalp.boyut, y - yariBoyut * 0.3f,
+                x - yariBoyut * 0.6f, y - kalp.boyut,
+                x, y - yariBoyut * 0.3f
+            )
+            yol.cubicTo(
+                x + yariBoyut * 0.6f, y - kalp.boyut,
+                x + kalp.boyut, y - yariBoyut * 0.3f,
+                x, y + yariBoyut
+            )
+            yol.close()
+
+            drawPath(path = yol, color = kalp.renk.copy(alpha = alpha))
         }
     }
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawKalp(
-    merkez: Offset,
-    boyut: Float,
-    renk: Color
-) {
-    val yariBoyut = boyut / 2f
-    val yol = Path().apply {
-        moveTo(merkez.x, merkez.y + yariBoyut)
-        cubicTo(
-            merkez.x - boyut, merkez.y - yariBoyut * 0.3f,
-            merkez.x - yariBoyut * 0.6f, merkez.y - boyut,
-            merkez.x, merkez.y - yariBoyut * 0.3f
-        )
-        cubicTo(
-            merkez.x + yariBoyut * 0.6f, merkez.y - boyut,
-            merkez.x + boyut, merkez.y - yariBoyut * 0.3f,
-            merkez.x, merkez.y + yariBoyut
-        )
-        close()
-    }
-    drawPath(path = yol, color = renk)
 }
