@@ -1,5 +1,4 @@
 name: Build APK
-
 on:
   push:
     branches: [ "main" ]
@@ -31,12 +30,22 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      # Repo Secrets'ta KEYSTORE_BASE64 tanımlıysa: secret'ı decode edip geçici bir
-      # keystore dosyası oluşturur ve sonraki adımlara ortam değişkenleri olarak aktarır.
-      # Secret tanımlı değilse bu adım hiçbir şey yapmaz, release imzasız derlenir.
+      # 1. YENİ ADIM: Secret'ın dolu olup olmadığını güvenli bir şekilde kontrol ediyoruz
+      - name: Check Keystore Secret
+        id: check_keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "is_present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 2. GÜNCELLENEN ADIM: 'if' koşulu artık bir önceki adımın çıktısına bakıyor
       - name: Decode signing keystore (varsa)
         id: signing
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: steps.check_keystore.outputs.is_present == 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
@@ -58,9 +67,6 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      # Secret'lar tanımlıysa APK Gradle tarafından zaten imzalanmış olarak çıkar;
-      # tanımlı değilse (henüz kurulum yapılmadıysa) imzasız çıkar. Artifact adı
-      # her koşulda aynı kalır, dosyanın kendisi imzalı/imzasız olarak farklılaşır.
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
