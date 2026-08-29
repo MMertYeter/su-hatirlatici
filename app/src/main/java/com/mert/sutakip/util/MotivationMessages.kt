@@ -12,21 +12,42 @@ object MotivationMessages {
 
     /** Her su ekleme işleminde gösterilen normal mesaj havuzu. */
     val normal = listOf(
-        "Harikasın {isim}! 💧",
-        "{isim}, tam bir su şampiyonusun!",
-        "Aferin {isim}, vücudun sana teşekkür ediyor 🙌",
+        // Senin eklediklerin:
+        "Harikasınn {isim}! 💧",
+        "{isim}, tam bir su kraliçesisin.👑",
+        "Aferinn {isim}, vücudun ve ben sana teşekkür ediyoruz 💖",
         "Böyle devam {isim}, harika gidiyorsun!",
         "{isim}, bir yudum daha, bir adım daha yakınsın!",
         "Su içmek asla bu kadar keyifli olmamıştı, {isim}!",
-        "Tebrikler {isim}, kendine iyi bakıyorsun 🌊",
-        "{isim}, vücudun şu an sana gülümsüyor!"
+        "Tebrikler {isim}, kendine iyi bakıyorsun ✨",
+        "{isim}, vücudun şu an çok mutlu.",
+        "Kaktüs değilsin {isim}, Kaktüssün ama olsun lıkır lıkır devam ksdjfj 🌵",
+        "Böbreklerin şu an halay çekiyor ohoooo {isim}, devammm! 💃",
+        "İçelim güzelleşelim {isim}, tabii ki sudan bahsediyorum sen zaten çok güzelsin! 🥰",
+        "{isim}, sen içtikçe barajlardaki doluluk oranı düşüyor olabilir ama vücudun bayram ediyor! 🌊",
+        "Oksijenin ikizi, hidrojenin can dostu vücuduna giriş yaptı {isim}! 🚰",
+        "Lıkır lıkır şifa olsun {isim}, yarasınnn!",
+        // Yeni eklenenler:
+        "Bir yudum su, bir yudum sevgi... Şifa olsun benimkine! ❤️",
+        "Dünyanın en tatlı kızı az önce su içti, kayıtlara geçsin! 📝",
+        "Su içişini bile izlemek isterdim {isim}, afiyet olsunn! 😍",
+        "Hem sağlığına hem güzelliğine yatırım yapıyorsun, zekisin he! 🧠💧",
+        "Yarasın benim prensesime👑"
     )
 
     /** Günlük hedef tamamlandığında gösterilen kutlama mesajı havuzu. */
     val kutlama = listOf(
-        "Bugünkü hedefini tamamladın {isim}, seninle gurur duyuyoruz! 🎉",
-        "{isim}, günün hedefi tamam! Sen bir su kahramanısın! 🏆",
-        "Harika iş {isim}! Bugün de hedefine ulaştın 💧🎉"
+        // Senin eklediklerin:
+        "{isim}, günün hedefi tamam! Sen bir su kahramanısın ben de senin kahramanınım! 🦸‍♂️🦸‍♀️",
+        "Mükemmellsiinnnn {isim}! Bugün de hedefine ulaştınnn 🌊",
+        "Kapanışı şampiyonlara yakışır şekilde yaptın {isim}! Madalyanı elden teslim edicem. 🥇",
+        "Bir alkış da böbreklerine gelsin {isim}, bugünkü zorlu mesaiyi başarıyla tamamladılar! 👏",
+        "BUGÜNÜ DE BİTİRDİN ALLAMM MÜKEMMELSİN BE 🎉",
+        // Yeni eklenenler:
+        "YA SEN BİTANESİNN! yine başardınn! 🏆❤️",
+        "Bu ne azim, bu ne kararlılık! Gururdan gözlerim yaşardı",
+        "Günün yıldızı sensin {isim}! Şimdi gidip kutlama yapabiliriz! 🥳",
+        "Hedefi tamamladın! Ödül olarak benden kocaman bir sarılma kazandın! 🤗"
     )
 
     /**
@@ -34,9 +55,21 @@ object MotivationMessages {
      * bildirim mesajı tonu için kullanılabilecek "hatırlatıcı" havuz.
      */
     val geriKalmaHatirlatma = listOf(
-        "{isim}, bugün biraz geride kaldın, birkaç yudum su içmeye ne dersin?",
-        "{isim}, vücudun su bekliyor, küçük bir mola verelim mi?",
-        "Hedefe henüz uzaksın {isim}, hadi bir bardak su daha!"
+        // Senin eklediklerin:
+        "{isim}, valla bugün çok su içmedin ama hadi neyyseeeee 🙄",
+        "{isim}, vücudun su bekliyo, sen yatıyon sadece ohh değme keyfime 😒",
+        "Hedefe henüz uzaksın {isim}, hadi bir bardak su daha!",
+        "{isim}, kaktüs moduna mı geçtin? Haydi bir bardak su! 🐪",
+        "Ohoo ben diyorum deve ol sen diyon ben yohh,daha çok bekliyorum 😤",
+        "Kuruduk, sarardık solduk {isim}... Bir yudum su lütfen! 🍂",
+        "Böbreklerin greve gitmek üzere {isim}, arabulucu olarak bir bardak su teklif ediyorum. ⚖️",
+        "{isim}, içimiz kurudu içimiz! Çöllere düşmeden bir yudum su atıver şu garip vücuduna. 🏜️",
+        // Yeni eklenenler:
+        "ŞŞ? Orada mısın? Su diyorum su, hani şu içmemiz gereken şey? 🧐",
+        "Güzellik uykusuna daldın galiba {isim}, uyan da bi su iç hadi!",
+        "Ben sana su iç diyorum, sen... ne yapıyorsun bilmiyorum ama su içmiyorsun! Çabuk bardağa sarıl! 🏃‍♀️",
+        "Seni düşünmekten ben susadım {isim}, kalk da beraber bi su içelim bari! 🥺",
+        "Böyle gidersen sana en yakın zamanda damacana hediye edicem, ciddiyim! 🎁💧"
     )
 
     /**
@@ -44,8 +77,19 @@ object MotivationMessages {
      * bildirim mesajı tonu için kullanılabilecek "tebrik edici" havuz.
      */
     val onde = listOf(
-        "Harika gidiyorsun {isim}, tam yolundasın! 💧",
-        "{isim}, bugün gayet iyi bir tempodasın, böyle devam!"
+        // Senin eklediklerin:
+        "Harika gidiyorsun {isim}, tam yolundasın! 🚀",
+        "{isim}, bugün gayet iyi bir tempodasın, böyle devam!",
+        "Mükemmel su içiyorsun sana güveniyoruumm böyle devammm",
+        "Hız felakettir derler ama su içerken değil! Uçuyorsun {isim}! ✈️",
+        "Şelale gibi akıyorsun maşallah {isim}! Aynen devam. 💦",
+        "{isim}, bu hızla gidersen yakında solungaçların çıkacak! Süpersin. 🐟",
+        "Tempoya bak! Olimpiyatlara su içme dalı gelse altın madalya banko senin {isim}. 🏅",
+        // Yeni eklenenler:
+        "Ooo kimleri görüyorum, hız rekorları kırılıyor bugün! Motor takmışsın {isim} 🏍️💨",
+        "Bana mısın demiyor, lıkır lıkır içiyor! Nazar değmesin tü tü tü 🧿",
+        "İşte benim {isim}'im! Her kulvarda olduğu gibi su içmede de birinci! 🥇",
+        "Şov yapıyorsun bugün {isim}, izlerken ben yoruldum valla! 😎"
     )
 
     fun rastgeleNormal(isim: String): String = normal.random().replace("{isim}", isim)
