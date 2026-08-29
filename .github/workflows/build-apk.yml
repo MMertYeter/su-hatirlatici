@@ -31,7 +31,24 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Build release APK (unsigned)
+      # Repo Secrets'ta KEYSTORE_BASE64 tanımlıysa: secret'ı decode edip geçici bir
+      # keystore dosyası oluşturur ve sonraki adımlara ortam değişkenleri olarak aktarır.
+      # Secret tanımlı değilse bu adım hiçbir şey yapmaz, release imzasız derlenir.
+      - name: Decode signing keystore (varsa)
+        id: signing
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "keystore_path=$RUNNER_TEMP/release.keystore" >> "$GITHUB_OUTPUT"
+
+      - name: Build release APK
+        env:
+          KEYSTORE_FILE: ${{ steps.signing.outputs.keystore_path }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace
 
       - name: Upload debug APK
@@ -41,9 +58,12 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      # Secret'lar tanımlıysa APK Gradle tarafından zaten imzalanmış olarak çıkar;
+      # tanımlı değilse (henüz kurulum yapılmadıysa) imzasız çıkar. Artifact adı
+      # her koşulda aynı kalır, dosyanın kendisi imzalı/imzasız olarak farklılaşır.
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: su-hatirlatici-release-unsigned
+          name: su-hatirlatici-release
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error

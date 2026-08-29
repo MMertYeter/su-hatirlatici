@@ -4,6 +4,33 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Release imzalama bilgileri iki kaynaktan okunabilir:
+// 1) CI ortamı: KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD ortam değişkenleri
+//    (bkz. .github/workflows/build-apk.yml)
+// 2) Yerel geliştirme: proje kökünde keystore.properties dosyası (Git'e ASLA eklenmez, .gitignore'da)
+//    storeFile=/tam/yol/su-hatirlatici-release.keystore
+//    storePassword=...
+//    keyAlias=su-hatirlatici
+//    keyPassword=...
+// Hiçbiri yoksa release derlemesi imzasız olarak devam eder (build bozulmaz).
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = java.util.Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+fun signingProp(propKey: String, envKey: String): String? =
+    keystoreProperties.getProperty(propKey) ?: System.getenv(envKey)
+
+val releaseStoreFilePath = signingProp("storeFile", "KEYSTORE_FILE")
+val releaseStorePassword = signingProp("storePassword", "KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingProp("keyAlias", "KEY_ALIAS")
+val releaseKeyPassword = signingProp("keyPassword", "KEY_PASSWORD")
+val releaseImzaMevcut = !releaseStoreFilePath.isNullOrBlank() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
+
 android {
     namespace = "com.mert.sutakip"
     compileSdk = 34
@@ -16,9 +43,23 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        if (releaseImzaMevcut) {
+            create("release") {
+                storeFile = file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseImzaMevcut) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

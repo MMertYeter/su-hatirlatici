@@ -15,3 +15,8 @@ local.properties
 bin/
 gen/
 out/
+
+# İmza / signing - asla repoya eklenmemeli
+keystore.properties
+*.keystore
+*.jks

@@ -72,3 +72,40 @@ sağlar. Gerekirse `AlarmManager.setExactAndAllowWhileIdle` ile değiştirilebil
 Test için: uygulamayı ilk açtığında onboarding akışı çıkacak, tamamladıktan
 sonra ana ekrana yönlenecek. Su eklerken bardakların dolma animasyonunu ve
 hedefi tamamladığında konfeti efektini görebilirsin.
+
+## Release APK İmzalama
+
+GitHub Actions workflow'u (`.github/workflows/build-apk.yml`), repo
+Secrets'ında aşağıdaki 4 secret tanımlıysa release APK'yı otomatik olarak
+imzalar; tanımlı değilse imzasız derlemeye devam eder (build bozulmaz):
+
+- `KEYSTORE_BASE64` — keystore dosyasının base64 hali
+- `KEYSTORE_PASSWORD`
+- `KEY_ALIAS`
+- `KEY_PASSWORD`
+
+Yeni bir keystore oluşturmak için:
+
+```
+keytool -genkeypair -v -keystore su-hatirlatici-release.keystore \
+  -alias su-hatirlatici -keyalg RSA -keysize 2048 -validity 10000
+base64 -i su-hatirlatici-release.keystore -o keystore-base64.txt
+```
+
+`keystore-base64.txt` içeriğini `KEYSTORE_BASE64` secret'ına, keytool'un
+sorduğu şifreleri de ilgili secret'lara yapıştır (Settings → Secrets and
+variables → Actions).
+
+Yerel makinede (Android Studio'dan) imzalı build almak için proje kökünde
+`keystore.properties` dosyası oluştur (bu dosya `.gitignore`'da, asla repoya
+gitmez):
+
+```
+storeFile=/tam/yol/su-hatirlatici-release.keystore
+storePassword=...
+keyAlias=su-hatirlatici
+keyPassword=...
+```
+
+**Keystore dosyasını ve şifrelerini kaybetme** — kaybedersen aynı imzayla
+güncelleme yayınlayamazsın, bu geri dönüşü olmayan bir durumdur.
