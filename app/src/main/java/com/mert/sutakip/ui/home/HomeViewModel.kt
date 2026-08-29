@@ -32,7 +32,11 @@ data class HomeUiState(
     val motivasyonMesaji: String? = null,
     val kutlamaGoster: Boolean = false,
     val sonIslemGeriAlinabilir: Boolean = false,
-    val bardakDolumlari: List<BardakDolumu> = emptyList()
+    val bardakDolumlari: List<BardakDolumu> = emptyList(),
+    // Özel miktar ekranındaki "Bugün X ml su/kahve içtiniz" önizlemesi için,
+    // günün su ve kahve toplamları ayrı ayrı (toplamMl = gunlukSuMl + gunlukKahveMl).
+    val gunlukSuMl: Int = 0,
+    val gunlukKahveMl: Int = 0
 )
 
 private data class TransientState(
@@ -75,7 +79,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             motivasyonMesaji = transient.motivasyonMesaji,
             kutlamaGoster = transient.kutlamaGoster,
             sonIslemGeriAlinabilir = sonIslemVarMi,
-            bardakDolumlari = bardakDolumlariniHesapla(kayitlar, profile.gunlukHedefMl)
+            bardakDolumlari = bardakDolumlariniHesapla(kayitlar, profile.gunlukHedefMl),
+            gunlukSuMl = kayitlar.filter { it.icecekTuru == IcecekTuru.SU }.sumOf { it.miktarMl }.coerceAtLeast(0),
+            gunlukKahveMl = kayitlar.filter { it.icecekTuru == IcecekTuru.KAHVE }.sumOf { it.miktarMl }.coerceAtLeast(0)
         )
     }.stateIn(
         scope = viewModelScope,

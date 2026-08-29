@@ -1,11 +1,9 @@
 package com.mert.sutakip.ui.home
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,8 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
@@ -41,7 +38,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,6 +49,17 @@ import com.mert.sutakip.ui.components.GlassGrid
 import com.mert.sutakip.ui.theme.CoffeeFillColorDeep
 import kotlinx.coroutines.launch
 
+/** Ana ekranda hangi popup'ın açık olduğunu tutar. Aynı anda en fazla biri açık olabilir. */
+private enum class AcikPopup {
+    YOK, SU_EKLE, KAHVE_EKLE, SIVI_AZALT
+}
+
+/** Özel miktar giriş ekranının hangi işlem için açıldığını (ekleme/azaltma + tür) tutar. */
+private data class OzelMiktarIstegi(
+    val tur: IcecekTuru,
+    val azaltmaMi: Boolean
+)
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel()
@@ -61,9 +68,9 @@ fun HomeScreen(
     val sonIslemVarMi by viewModel.sonIslemVarMi.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var ozelMiktarDialogAcik by remember { mutableStateOf(false) }
-    var ozelAzaltmaDialogAcik by remember { mutableStateOf(false) }
-    var ozelKahveDialogAcik by remember { mutableStateOf(false) }
+
+    var acikPopup by remember { mutableStateOf(AcikPopup.YOK) }
+    var ozelMiktarIstegi by remember { mutableStateOf<OzelMiktarIstegi?>(null) }
 
     LaunchedEffect(state.motivasyonMesaji) {
         val mesaj = state.motivasyonMesaji
@@ -116,8 +123,9 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
+                // Minimal ana menü: sadece 3 buton. Her biri kendi popup'ını açar.
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -125,7 +133,7 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
-                        onClick = { viewModel.suEkle(200) },
+                        onClick = { acikPopup = AcikPopup.SU_EKLE },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(64.dp),
@@ -136,137 +144,37 @@ fun HomeScreen(
                     ) {
                         Icon(Icons.Filled.LocalDrink, contentDescription = null)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("+1 Bardak (200ml)", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
+                        Text("Su Ekle", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
                     }
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    Button(
+                        onClick = { acikPopup = AcikPopup.KAHVE_EKLE },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CoffeeFillColorDeep
+                        )
                     ) {
-                        OutlinedButton(
-                            onClick = { viewModel.suEkle(100) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(18.dp)
-                        ) {
-                            Text("+ Yarım Bardak (100ml)")
-                        }
-
-                        OutlinedButton(
-                            onClick = { ozelMiktarDialogAcik = true },
-                            modifier = Modifier
-                                .weight(0.6f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(18.dp)
-                        ) {
-                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                            Text("Özel")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Kahve ekleme: kahve de sıvı alımına katkı sağladığı için toplama dahil edilir.
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedButton(
-                            onClick = { viewModel.kahveEkle(150) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = CoffeeFillColorDeep
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                CoffeeFillColorDeep.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Text("☕ Kahve Ekle (150ml)")
-                        }
-
-                        OutlinedButton(
-                            onClick = { ozelKahveDialogAcik = true },
-                            modifier = Modifier
-                                .weight(0.6f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = CoffeeFillColorDeep
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                CoffeeFillColorDeep.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                            Text("Özel")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedButton(
-                            onClick = { viewModel.suAzalt(200, IcecekTuru.SU) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Filled.Remove, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                            Text("Su Azalt (200ml)")
-                        }
-
-                        OutlinedButton(
-                            onClick = { ozelAzaltmaDialogAcik = true },
-                            modifier = Modifier
-                                .weight(0.6f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                            Text("Özel")
-                        }
+                        Icon(Icons.Filled.LocalCafe, contentDescription = null)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Kahve Ekle", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
                     }
 
                     OutlinedButton(
-                        onClick = { viewModel.suAzalt(150, IcecekTuru.KAHVE) },
+                        onClick = { acikPopup = AcikPopup.SIVI_AZALT },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
+                            .height(56.dp),
                         shape = RoundedCornerShape(18.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = CoffeeFillColorDeep
+                            contentColor = MaterialTheme.colorScheme.error
                         ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            CoffeeFillColorDeep.copy(alpha = 0.35f)
-                        )
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
                     ) {
                         Icon(Icons.Filled.Remove, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                        Text("Kahve Azalt (150ml)")
+                        Text("Sıvı Azalt")
                     }
                 }
 
@@ -280,68 +188,168 @@ fun HomeScreen(
         }
     }
 
-    if (ozelMiktarDialogAcik) {
-        OzelMiktarDialog(
-            baslik = "Özel miktar gir",
-            onayEtiketi = "Ekle",
-            onDismiss = { ozelMiktarDialogAcik = false },
-            onConfirm = { ml ->
-                viewModel.suEkle(ml)
-                ozelMiktarDialogAcik = false
-            }
+    // "Su Ekle" popup'ı: 200ml, 100ml, Özel miktar
+    if (acikPopup == AcikPopup.SU_EKLE) {
+        SecenekPopup(
+            baslik = "Su Ekle",
+            secenekler = listOf(
+                "200 ml" to { viewModel.suEkle(200); acikPopup = AcikPopup.YOK },
+                "100 ml" to { viewModel.suEkle(100); acikPopup = AcikPopup.YOK },
+                "Özel miktar" to {
+                    acikPopup = AcikPopup.YOK
+                    ozelMiktarIstegi = OzelMiktarIstegi(IcecekTuru.SU, azaltmaMi = false)
+                }
+            ),
+            onDismiss = { acikPopup = AcikPopup.YOK }
         )
     }
 
-    if (ozelAzaltmaDialogAcik) {
-        OzelMiktarDialog(
-            baslik = "Ne kadar azaltılsın?",
-            onayEtiketi = "Azalt",
-            onDismiss = { ozelAzaltmaDialogAcik = false },
-            onConfirm = { ml ->
-                viewModel.suAzalt(ml)
-                ozelAzaltmaDialogAcik = false
-            }
+    // "Kahve Ekle" popup'ı: 200ml, Özel miktar
+    if (acikPopup == AcikPopup.KAHVE_EKLE) {
+        SecenekPopup(
+            baslik = "Kahve Ekle",
+            secenekler = listOf(
+                "200 ml" to { viewModel.kahveEkle(200); acikPopup = AcikPopup.YOK },
+                "Özel miktar" to {
+                    acikPopup = AcikPopup.YOK
+                    ozelMiktarIstegi = OzelMiktarIstegi(IcecekTuru.KAHVE, azaltmaMi = false)
+                }
+            ),
+            onDismiss = { acikPopup = AcikPopup.YOK }
         )
     }
 
-    if (ozelKahveDialogAcik) {
+    // "Sıvı Azalt" popup'ı: Kahve Azalt / Su Azalt -> her ikisi de özel değer ekranına gider
+    if (acikPopup == AcikPopup.SIVI_AZALT) {
+        SecenekPopup(
+            baslik = "Neyi azaltmak istersin?",
+            secenekler = listOf(
+                "Su Azalt" to {
+                    acikPopup = AcikPopup.YOK
+                    ozelMiktarIstegi = OzelMiktarIstegi(IcecekTuru.SU, azaltmaMi = true)
+                },
+                "Kahve Azalt" to {
+                    acikPopup = AcikPopup.YOK
+                    ozelMiktarIstegi = OzelMiktarIstegi(IcecekTuru.KAHVE, azaltmaMi = true)
+                }
+            ),
+            onDismiss = { acikPopup = AcikPopup.YOK }
+        )
+    }
+
+    // Özel değer giriş ekranı: hem ekleme hem azaltma için ortak, canlı önizleme metniyle.
+    ozelMiktarIstegi?.let { istek ->
         OzelMiktarDialog(
-            baslik = "Kaç ml kahve?",
-            onayEtiketi = "Ekle",
-            onDismiss = { ozelKahveDialogAcik = false },
+            istek = istek,
+            gunlukSuMl = state.gunlukSuMl,
+            gunlukKahveMl = state.gunlukKahveMl,
+            onDismiss = { ozelMiktarIstegi = null },
             onConfirm = { ml ->
-                viewModel.kahveEkle(ml)
-                ozelKahveDialogAcik = false
+                if (istek.azaltmaMi) {
+                    viewModel.suAzalt(ml, istek.tur)
+                } else if (istek.tur == IcecekTuru.KAHVE) {
+                    viewModel.kahveEkle(ml)
+                } else {
+                    viewModel.suEkle(ml)
+                }
+                ozelMiktarIstegi = null
             }
         )
     }
 }
 
+/**
+ * Bir butonun altından açılan, birkaç kısa seçenek sunan basit popup.
+ * Her seçenek tek dokunuşla kendi aksiyonunu tetikler ve popup'ı kapatır.
+ */
+@Composable
+private fun SecenekPopup(
+    baslik: String,
+    secenekler: List<Pair<String, () -> Unit>>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(baslik) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                secenekler.forEach { (etiket, aksiyon) ->
+                    OutlinedButton(
+                        onClick = aksiyon,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(etiket, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Vazgeç") }
+        }
+    )
+}
+
+/**
+ * Özel miktar giriş ekranı. Hem ekleme hem azaltma için kullanılır; başlık ve
+ * onay metni işleme göre değişir. Girilen değer canlı olarak "Bugün X ml
+ * su/kahve içtiniz" önizlemesine yansır (azaltmada da aynı cümle, azaltma
+ * sonrası günün toplamını gösterir).
+ */
 @Composable
 private fun OzelMiktarDialog(
+    istek: OzelMiktarIstegi,
+    gunlukSuMl: Int,
+    gunlukKahveMl: Int,
     onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit,
-    baslik: String = "Özel miktar gir",
-    onayEtiketi: String = "Ekle"
+    onConfirm: (Int) -> Unit
 ) {
     var metin by remember { mutableStateOf("") }
-    val miktar = metin.toIntOrNull()
+    val girilenMiktar = metin.toIntOrNull() ?: 0
+
+    val turAdi = if (istek.tur == IcecekTuru.KAHVE) "kahve" else "su"
+    val mevcutMl = if (istek.tur == IcecekTuru.KAHVE) gunlukKahveMl else gunlukSuMl
+
+    val onizlemeMl = if (istek.azaltmaMi) {
+        (mevcutMl - girilenMiktar).coerceAtLeast(0)
+    } else {
+        mevcutMl + girilenMiktar
+    }
+
+    val baslik = when {
+        istek.azaltmaMi && istek.tur == IcecekTuru.KAHVE -> "Kahve azalt"
+        istek.azaltmaMi -> "Su azalt"
+        istek.tur == IcecekTuru.KAHVE -> "Özel kahve miktarı"
+        else -> "Özel su miktarı"
+    }
+    val onayEtiketi = if (istek.azaltmaMi) "Azalt" else "Ekle"
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(baslik) },
         text = {
-            OutlinedTextField(
-                value = metin,
-                onValueChange = { metin = it.filter { c -> c.isDigit() } },
-                label = { Text("Miktar (ml)") },
-                singleLine = true
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = metin,
+                    onValueChange = { metin = it.filter { c -> c.isDigit() } },
+                    label = { Text("Miktar (ml)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "Bugün $onizlemeMl ml $turAdi içtiniz",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         },
         confirmButton = {
             TextButton(
-                onClick = { miktar?.let { if (it > 0) onConfirm(it) } },
-                enabled = miktar != null && miktar > 0
+                onClick = { if (girilenMiktar > 0) onConfirm(girilenMiktar) },
+                enabled = girilenMiktar > 0
             ) {
                 Text(onayEtiketi)
             }

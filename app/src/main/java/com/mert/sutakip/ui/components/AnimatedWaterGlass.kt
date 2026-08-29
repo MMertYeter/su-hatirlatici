@@ -15,7 +15,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -77,17 +76,19 @@ fun AnimatedWaterGlass(
         label = "wavePhase"
     )
 
-    var sparkleAlpha by remember { mutableFloatStateOf(0f) }
+    // justCompleted true olduğunda parıltıyı anında 1f'e sıçratıp hemen ardından
+    // 0f'e söndürüyoruz (Animatable ile, ki her iki adım da gerçekten çalışsın).
+    // Önceki halde hedef değer justCompleted ile ters bağlanmıştı: parıltı hiç
+    // görünmeden söner, sonra justCompleted false'a dönünce kalıcı olarak 1f'de
+    // takılı kalıyordu — ekranda hep duran gri/beyaz daire buradan geliyordu.
+    val sparkle = remember { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(justCompleted) {
         if (justCompleted) {
-            sparkleAlpha = 1f
+            sparkle.snapTo(1f)
+            sparkle.animateTo(0f, animationSpec = tween(900))
         }
     }
-    val animatedSparkle by animateFloatAsState(
-        targetValue = if (justCompleted) 0f else sparkleAlpha,
-        animationSpec = tween(900),
-        label = "sparkleFade"
-    )
+    val animatedSparkle = sparkle.value
 
     val emptyColor = WaterGlassEmpty
 

@@ -20,13 +20,12 @@ private val Context.reminderState by preferencesDataStore(name = "reminder_state
  * (temel dağıtım + adaptif düzeltme) burada birleştirir:
  *
  * 1. Uyku saatleri içindeysek hiçbir şey yapmadan çıkar.
- * 2. Son bildirimden bu yana min. 45 dk geçmediyse çıkar.
+ * 2. Son bildirimden bu yana min. 30 dk geçmediyse çıkar.
  * 3. Güne göre "beklenen" tüketimi (uyanma saatinden bu yana geçen süre
  *    oranında hedefin ne kadarının içilmiş olması gerektiğini) hesaplar.
  * 4. Gerçek tüketimle karşılaştırır:
- *    - %20+ geride  -> daha sık/erken hatırlatma, "hatırlatıcı" ton
- *    - önde/tam zamanında -> normal aralık, "tebrik edici" ton
- *    - son 2 saatte ciddi açık varsa -> sıklık kontrollü artırılır (yine min 45dk)
+ *    - geride/tam zamanında -> yaklaşık yarım saatte bir (30dk), "hatırlatıcı" ton
+ *    - önde -> biraz daha seyrek (45dk), "tebrik edici" ton
  * 5. Bildirime dokunma su eklemez; sadece uygulamayı açar (bkz. NotificationHelper).
  */
 class AdaptiveReminderWorker(
@@ -85,9 +84,9 @@ class AdaptiveReminderWorker(
 
         val gerideKaldiMi = farkOrani >= 0.20
         val gerekliAralikDk = when {
-            gerideKaldiMi && sonIkiSaatteMi -> ReminderScheduler.MIN_BILDIRIM_ARALIGI_DK // en sık, ama yine min 45dk
-            gerideKaldiMi -> 60L // biraz daha sık
-            else -> 90L // normal/önde iken daha seyrek
+            gerideKaldiMi && sonIkiSaatteMi -> ReminderScheduler.MIN_BILDIRIM_ARALIGI_DK // en sık, min 30dk
+            gerideKaldiMi -> ReminderScheduler.MIN_BILDIRIM_ARALIGI_DK // geride iken de yarım saatte bir
+            else -> 45L // normal/önde iken biraz daha seyrek
         }
 
         if (gecenDk < gerekliAralikDk) {

@@ -18,15 +18,16 @@ import java.util.concurrent.TimeUnit
  *    karşılaştırarak bir sonraki bildirimin zamanlamasını ve tonunu ayarlar.
  *
  * Not: WorkManager'ın minimum periyodik aralığı 15 dakikadır; bu yüzden
- * "planlama" işini saatlik bir job ile yapıp, her çalıştığında son bildirimden
- * bu yana min. 45 dakika geçip geçmediğini ve uyku saatleri içinde olup
- * olmadığımızı AdaptiveReminderWorker içinde kontrol ediyoruz. Bu, exact
- * alarm karmaşıklığı olmadan spesifikasyondaki davranışı sağlar.
+ * "planlama" işini 15 dakikalık bir job ile yapıp, her çalıştığında son
+ * bildirimden bu yana min. 30 dakika geçip geçmediğini ve uyku saatleri
+ * içinde olup olmadığımızı AdaptiveReminderWorker içinde kontrol ediyoruz.
+ * Bu, exact alarm karmaşıklığı olmadan yaklaşık yarım saatte bir bildirim
+ * davranışını sağlar.
  */
 object ReminderScheduler {
 
     private const val WORK_NAME = "adaptif_su_hatirlatma"
-    const val MIN_BILDIRIM_ARALIGI_DK = 45L
+    const val MIN_BILDIRIM_ARALIGI_DK = 30L
 
     fun planlamayiBaslat(context: Context) {
         val request = PeriodicWorkRequestBuilder<AdaptiveReminderWorker>(
