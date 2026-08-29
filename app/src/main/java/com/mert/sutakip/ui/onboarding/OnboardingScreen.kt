@@ -42,6 +42,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,13 +51,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mert.sutakip.data.datastore.Cinsiyet
+import com.mert.sutakip.ui.components.FallingHeartsOverlay
 import com.mert.sutakip.ui.theme.WaterFillColor
 import com.mert.sutakip.ui.theme.WaterFillColorDeep
+import com.mert.sutakip.util.OzelIsimKontrol
+import kotlinx.coroutines.delay
 
 @Composable
 fun OnboardingScreen(
@@ -64,6 +69,22 @@ fun OnboardingScreen(
     viewModel: OnboardingViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+
+    // İsim adımından ayrılırken, girilen isim "Rümeysa" ve yakın varyasyonlarından
+    // biriyle eşleşiyorsa bir kereye mahsus özel bir karşılama ekranı gösterilir.
+    // Bu ekran otomatik olarak birkaç saniye sonra kapanıp bir sonraki adıma geçer.
+    var ozelKarsilamaGoster by remember { mutableStateOf(false) }
+
+    if (ozelKarsilamaGoster) {
+        OzelKarsilamaOverlay(
+            isim = state.isim.trim(),
+            onTamamlandi = {
+                ozelKarsilamaGoster = false
+                viewModel.ileriGit()
+            }
+        )
+        return
+    }
 
     Box(
         modifier = Modifier
@@ -171,6 +192,8 @@ fun OnboardingScreen(
                     onClick = {
                         if (state.adim == 3) {
                             viewModel.tamamla(onTamamlandi)
+                        } else if (state.adim == 0 && OzelIsimKontrol.rumeysaVaryasyonuMu(state.isim)) {
+                            ozelKarsilamaGoster = true
                         } else {
                             viewModel.ileriGit()
                         }
@@ -205,6 +228,46 @@ private fun AdimBasligi(baslik: String, aciklama: String? = null) {
             text = aciklama,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun OzelKarsilamaOverlay(
+    isim: String,
+    onTamamlandi: () -> Unit
+) {
+    // Yazı biraz daha erken belirir, kalpler hemen başlar; toplam ekran süresi ~2.8sn
+    // ki mesaj rahatça okunsun (kısa bir cümle için yeterli, aceleye getirmiyor).
+    LaunchedEffect(Unit) {
+        delay(2800)
+        onTamamlandi()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFFFE3E8),
+                        Color(0xFFFFF5F7)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "$isim, özel kullanıcı. Bu uygulama kimse bilmese de aslında sadece senin için tasarlandı🥰",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Center,
+            color = Color(0xFFAD1457),
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+
+        FallingHeartsOverlay(
+            visible = true,
+            modifier = Modifier.fillMaxSize()
         )
     }
 }
@@ -246,7 +309,7 @@ private fun IsimAdimi(isim: String, onIsimChange: (String) -> Unit) {
             Icon(
                 imageVector = Icons.Filled.Person,
                 contentDescription = null,
-                tint = androidx.compose.ui.graphics.Color.White,
+                tint = Color.White,
                 modifier = Modifier.size(36.dp)
             )
         }
