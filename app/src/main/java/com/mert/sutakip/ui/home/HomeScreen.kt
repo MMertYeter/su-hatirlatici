@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -154,7 +155,8 @@ fun HomeScreen(
                             .height(64.dp),
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = CoffeeFillColorDeep
+                            containerColor = CoffeeFillColorDeep,
+                            contentColor = Color.White
                         )
                     ) {
                         Icon(Icons.Filled.LocalCafe, contentDescription = null)

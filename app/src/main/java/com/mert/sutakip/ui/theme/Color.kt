@@ -17,9 +17,9 @@ val WaterGlassEmpty = Color(0xFFDCF3FB)
 val WaterFillColor = Color(0xFF29B6F6)
 val WaterFillColorDeep = Color(0xFF0288D1)
 
-// Kahve tonları
-val CoffeeFillColor = Color(0xFF8D6E63)
-val CoffeeFillColorDeep = Color(0xFF4E342E)
+// Kahve tonları (açık, net kahverengi - mora çalmayan)
+val CoffeeFillColor = Color(0xFFA1887F)
+val CoffeeFillColorDeep = Color(0xFF795548)
 
 // Koyu tema
 val WaterBackgroundDark = Color(0xFF0A1929)
