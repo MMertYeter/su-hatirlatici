@@ -1,5 +1,6 @@
 package com.mert.sutakip.ui.settings
 
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
@@ -31,11 +34,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mert.sutakip.data.datastore.Cinsiyet
 import com.mert.sutakip.data.datastore.TemaModu
+import com.mert.sutakip.notification.BatteryOptimizationHelper
 
 @Composable
 fun SettingsScreen(
@@ -161,18 +166,52 @@ fun SettingsScreen(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Bildirimleri Aç")
-                Switch(
-                    checked = profile.bildirimlerAcik,
-                    onCheckedChange = { viewModel.bildirimlerAcikDegistir(it) }
-                )
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Bildirimleri Aç")
+                    Switch(
+                        checked = profile.bildirimlerAcik,
+                        onCheckedChange = { viewModel.bildirimlerAcikDegistir(it) }
+                    )
+                }
+
+                if (BatteryOptimizationHelper.agresifPilYonetimiOlabilirMi()) {
+                    val context = LocalContext.current
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Bildirimler geç mi geliyor?",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} telefonlar, izinler açık olsa bile " +
+                                "pil tasarrufu için uygulamayı arka planda kapatabiliyor. Bildirimlerin düzenli " +
+                                "gelmesi için bu telefonda ayrıca \"otomatik başlatma\" veya \"arka planda çalışma\" " +
+                                "iznini de açman gerekiyor.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                BatteryOptimizationHelper.ureticiyeOzelAyarlariAc(context)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Telefon Ayarlarını Aç")
+                        }
+                    }
+                }
             }
         }
 

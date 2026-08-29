@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Xiaomi/Huawei/OPPO/Vivo/OnePlus/Asus otomatik başlatma ayar ekranlarını açabilmek için
+         (explicit component intent kullanılıyor ama bazı OEM ROM'ları yine de paket görünürlüğü
+         beyanı isteyebiliyor; bu paketler cihazda yoksa sorun olmaz, sadece o dal denenmez). -->
+    <queries>
+        <package android:name="com.miui.securitycenter" />
+        <package android:name="com.huawei.systemmanager" />
+        <package android:name="com.coloros.safecenter" />
+        <package android:name="com.coloros.oppoguardelf" />
+        <package android:name="com.vivo.permissionmanager" />
+        <package android:name="com.iqoo.secure" />
+        <package android:name="com.oneplus.security" />
+        <package android:name="com.asus.mobilemanager" />
+    </queries>
+
     <!-- Android 13+ bildirim izni -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Android 12+ exact alarm izni -->

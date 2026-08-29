@@ -145,11 +145,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Günün kayıtlarını kronolojik sırayla (en eskiden en yeniye) bardaklara dağıtır; her
-     * bardağın su/kahve oranını hesaplar. Negatif (azaltma) kayıtlar SADECE kendi türünden
-     * (su azaltması sudan, kahve azaltması kahveden) düşülür ve diğer türe asla dokunmaz —
-     * örn. "Su Azalt" en son dolan bardak kahve olsa bile görsel olarak kahveyi eritmez,
-     * bir önceki dolu su bardağını bulup ondan düşer.
+     * Günün kayıtlarını kronolojik sırayla (en eskiden en yeniye) bardaklara dağıtır.
+     *
+     * SADELEŞTİRİLMİŞ MANTIK: Her bardak SADECE TEK BİR TÜRDEN oluşur — asla aynı
+     * bardakta hem su hem kahve olmaz. Bir bardak bir türle doldurulmaya başladıysa,
+     * o bardağın kalan kapasitesi sadece o türle doldurulabilir; kapasite dolunca
+     * bir sonraki (boş) bardağa geçilir. Böylece "hangi bardağın ne kadarı su ne
+     * kadarı kahve" sorusu hiç ortaya çıkmaz, karışıklık tamamen ortadan kalkar.
+     *
+     * Azaltma (Su Azalt / Kahve Azalt) de aynı basitliktedir: sadece kendi türünden
+     * dolu olan en son bardaktan başlayarak, o bardağı boşaltarak geriye doğru iner.
      */
     private fun bardakDolumlariniHesapla(kayitlar: List<WaterEntry>, hedefMl: Int): List<BardakDolumu> {
         val bardakSayisi = ((hedefMl + BARDAK_KAPASITESI_ML - 1) / BARDAK_KAPASITESI_ML).coerceAtLeast(1)
@@ -158,88 +163,97 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         // entriesForDay DESC sırayla geldiği için kronolojik (ASC) sıraya çeviriyoruz.
         val kronolojik = kayitlar.sortedBy { it.tarihSaatEpochMs }
 
-        var doluMl = 0
+        // Her bardağın hangi türle "kilitlendiğini" tutar (o bardağa ilk hangi tür
+        // eklendiyse). null = bardak henüz hiç dolmamış, herhangi bir tür açabilir.
+        // dolumlar başlangıçta tamamen boş oluşturulduğu için hepsi null ile başlar.
+        val bardakTuru = arrayOfNulls<IcecekTuru>(bardakSayisi)
+
         for (kayit in kronolojik) {
             if (kayit.miktarMl >= 0) {
-                doluMl = doldur(dolumlar, doluMl, kayit.miktarMl, kayit.icecekTuru, bardakSayisi)
+                doldur(dolumlar, bardakTuru, kayit.miktarMl, kayit.icecekTuru)
             } else {
-                doluMl = azalt(dolumlar, doluMl, -kayit.miktarMl, kayit.icecekTuru)
+                azalt(dolumlar, bardakTuru, -kayit.miktarMl, kayit.icecekTuru)
             }
         }
 
         return dolumlar
     }
 
-    /** doluMl'den başlayarak miktarMl kadar sıvıyı ilgili bardaklara (kısmi doldurarak) ekler. */
+    /**
+     * miktarMl kadar tur sıvısını, ilk boş ya da zaten aynı türle kısmen dolu olan
+     * bardaktan başlayarak sırayla doldurur. Farklı türle dolu/kısmen dolu bir bardağa
+     * asla dokunmaz — o bardak dolu sayılır, bir sonrakine geçilir.
+     */
     private fun doldur(
         dolumlar: MutableList<BardakDolumu>,
-        baslangicDoluMl: Int,
+        bardakTuru: Array<IcecekTuru?>,
         miktarMl: Int,
-        tur: IcecekTuru,
-        bardakSayisi: Int
-    ): Int {
-        var doluMl = baslangicDoluMl
+        tur: IcecekTuru
+    ) {
         var kalanMiktar = miktarMl
-        while (kalanMiktar > 0) {
-            val bardakIndex = doluMl / BARDAK_KAPASITESI_ML
-            if (bardakIndex >= bardakSayisi) break
-
-            val buBardaktaKalanKapasite = BARDAK_KAPASITESI_ML - (doluMl % BARDAK_KAPASITESI_ML)
-            val buAdimdaEklenen = minOf(kalanMiktar, buBardaktaKalanKapasite)
-            val oran = buAdimdaEklenen.toFloat() / BARDAK_KAPASITESI_ML
-
-            val mevcut = dolumlar[bardakIndex]
-            dolumlar[bardakIndex] = if (tur == IcecekTuru.KAHVE) {
-                mevcut.copy(kahveOrani = mevcut.kahveOrani + oran)
-            } else {
-                mevcut.copy(suOrani = mevcut.suOrani + oran)
+        var bardakIndex = 0
+        while (kalanMiktar > 0 && bardakIndex < dolumlar.size) {
+            val bulunanTur = bardakTuru[bardakIndex]
+            if (bulunanTur != null && bulunanTur != tur) {
+                // Bu bardak zaten diğer türle meşgul, dokunmadan geç.
+                bardakIndex++
+                continue
             }
 
-            doluMl += buAdimdaEklenen
+            val mevcut = dolumlar[bardakIndex]
+            val doluOran = if (tur == IcecekTuru.KAHVE) mevcut.kahveOrani else mevcut.suOrani
+            val kalanKapasiteMl = ((1f - doluOran) * BARDAK_KAPASITESI_ML).let { kotlin.math.round(it).toInt() }
+
+            if (kalanKapasiteMl <= 0) {
+                bardakIndex++
+                continue
+            }
+
+            val buAdimdaEklenen = minOf(kalanMiktar, kalanKapasiteMl)
+            val eklenenOran = buAdimdaEklenen.toFloat() / BARDAK_KAPASITESI_ML
+
+            dolumlar[bardakIndex] = if (tur == IcecekTuru.KAHVE) {
+                mevcut.copy(kahveOrani = (mevcut.kahveOrani + eklenenOran).coerceAtMost(1f))
+            } else {
+                mevcut.copy(suOrani = (mevcut.suOrani + eklenenOran).coerceAtMost(1f))
+            }
+            bardakTuru[bardakIndex] = tur
+
             kalanMiktar -= buAdimdaEklenen
+            if (buAdimdaEklenen >= kalanKapasiteMl) bardakIndex++
         }
-        return doluMl
     }
 
     /**
-     * miktarMl kadar sıvıyı, SADECE tercihEdilenTur türünün dolu olduğu bardaklardan
-     * düşer (en son dolu bardaktan başlayarak geriye doğru). Diğer türe asla dokunmaz —
-     * "Su Azalt" hiçbir zaman görsel olarak kahveyi eritmez, "Kahve Azalt" hiçbir zaman
-     * suyu eritmez. Eğer o türden bardaklarda gösterilecek yeterli miktar yoksa (örn. çok
-     * eski/taşmış kayıtlar nedeniyle), kalan kısım sessizce atlanır; günün toplamı zaten
-     * WaterRepository'de ayrıca doğru tutuluyor, burada sadece görsel temsil ele alınıyor.
+     * miktarMl kadar tur sıvısını, o türle dolu EN SON bardaktan başlayarak geriye
+     * doğru boşaltır. Diğer türe hiçbir zaman dokunmaz.
      */
     private fun azalt(
         dolumlar: MutableList<BardakDolumu>,
-        baslangicDoluMl: Int,
+        bardakTuru: Array<IcecekTuru?>,
         miktarMl: Int,
-        tercihEdilenTur: IcecekTuru
-    ): Int {
+        tur: IcecekTuru
+    ) {
         var kalanAzaltma = miktarMl
-
-        // En son dolan bardaktan (baslangicDoluMl'ye en yakın) başlayıp geriye doğru tara.
-        var bardakIndex = if (baslangicDoluMl > 0) (baslangicDoluMl - 1) / BARDAK_KAPASITESI_ML else -1
+        var bardakIndex = dolumlar.size - 1
         while (kalanAzaltma > 0 && bardakIndex >= 0) {
-            if (bardakIndex < dolumlar.size) {
+            if (bardakTuru[bardakIndex] == tur) {
                 val mevcut = dolumlar[bardakIndex]
-                val tercihEdilenOran = if (tercihEdilenTur == IcecekTuru.KAHVE) mevcut.kahveOrani else mevcut.suOrani
+                val doluOran = if (tur == IcecekTuru.KAHVE) mevcut.kahveOrani else mevcut.suOrani
+                val doluMl = kotlin.math.round(doluOran * BARDAK_KAPASITESI_ML).toInt()
 
-                if (tercihEdilenOran > 0f) {
-                    val tercihEdilenMl = kotlin.math.round(tercihEdilenOran * BARDAK_KAPASITESI_ML).toInt()
-                    val buAdimdaAzaltilan = minOf(kalanAzaltma, tercihEdilenMl)
-                    val oran = buAdimdaAzaltilan.toFloat() / BARDAK_KAPASITESI_ML
+                if (doluMl > 0) {
+                    val buAdimdaAzaltilan = minOf(kalanAzaltma, doluMl)
+                    val azaltilanOran = buAdimdaAzaltilan.toFloat() / BARDAK_KAPASITESI_ML
 
-                    dolumlar[bardakIndex] = mevcut.uygulaAzaltma(tercihEdilenTur, oran)
+                    dolumlar[bardakIndex] = mevcut.uygulaAzaltma(tur, azaltilanOran)
+                    if (dolumlar[bardakIndex].toplamDoluluk <= 0f) bardakTuru[bardakIndex] = null
+
                     kalanAzaltma -= buAdimdaAzaltilan
                 }
             }
             bardakIndex--
         }
-
-        // Toplam görsel dolum seviyesini, gerçekten düşürebildiğimiz miktar kadar geri çeker
-        // (yani sadece tercih edilen türden düşen kısım kadar; hiç bulunamayan kalan miktar
-        // toplamı etkilemez).
-        return baslangicDoluMl - (miktarMl - kalanAzaltma)
     }
 
     private fun BardakDolumu.uygulaAzaltma(tur: IcecekTuru, miktar: Float): BardakDolumu =
