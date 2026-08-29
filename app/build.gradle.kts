@@ -1,3 +1,5 @@
+import java.util.Properties // YENİ EKLENDİ: Properties sınıfını içeri aktarıyoruz
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,7 +16,7 @@ plugins {
 //    keyPassword=...
 // Hiçbiri yoksa release derlemesi imzasız olarak devam eder (build bozulmaz).
 val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = java.util.Properties()
+val keystoreProperties = Properties() // DÜZELTİLDİ: "java.util." kısmı silindi
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
