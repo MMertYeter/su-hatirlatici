@@ -117,6 +117,7 @@ private fun AnaNavigasyon() {
                                     NavHedef.Ana -> Icons.Filled.Home
                                     NavHedef.Istatistik -> Icons.Filled.BarChart
                                     NavHedef.Ayarlar -> Icons.Filled.Settings
+                                    NavHedef.AktiviteGecmisi -> Icons.Filled.Settings // alt bar'da hiç görünmez, sadece exhaustive olması için
                                 },
                                 contentDescription = hedef.etiket
                             )
