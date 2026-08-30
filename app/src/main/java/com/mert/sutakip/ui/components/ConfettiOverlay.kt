@@ -56,7 +56,7 @@ fun ConfettiOverlay(
     var play by remember { mutableStateOf(false) }
     val progress by animateFloatAsState(
         targetValue = if (play) 1f else 0f,
-        animationSpec = tween(durationMillis = 1600, easing = LinearEasing),
+        animationSpec = tween(durationMillis = 3200, easing = LinearEasing),
         label = "confettiProgress"
     )
 
