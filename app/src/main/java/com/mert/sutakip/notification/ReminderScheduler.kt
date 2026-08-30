@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 object ReminderScheduler {
 
     private const val WORK_NAME = "adaptif_su_hatirlatma"
-    const val MIN_BILDIRIM_ARALIGI_DK = 30L
+    const val MIN_BILDIRIM_ARALIGI_DK = 45L
 
     fun planlamayiBaslat(context: Context) {
         val request = PeriodicWorkRequestBuilder<AdaptiveReminderWorker>(
