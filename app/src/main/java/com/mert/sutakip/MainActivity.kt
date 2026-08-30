@@ -35,6 +35,7 @@ import androidx.navigation.compose.rememberNavController
 import com.mert.sutakip.data.datastore.TemaModu
 import com.mert.sutakip.notification.ReminderScheduler
 import com.mert.sutakip.ui.home.HomeScreen
+import com.mert.sutakip.ui.log.ActivityLogScreen
 import com.mert.sutakip.ui.onboarding.OnboardingScreen
 import com.mert.sutakip.ui.settings.SettingsScreen
 import com.mert.sutakip.ui.stats.StatsScreen
@@ -93,6 +94,7 @@ private sealed class NavHedef(val route: String, val etiket: String) {
     object Ana : NavHedef("ana", "Ana Sayfa")
     object Istatistik : NavHedef("istatistik", "İstatistik")
     object Ayarlar : NavHedef("ayarlar", "Ayarlar")
+    object AktiviteGecmisi : NavHedef("aktivite_gecmisi", "Bugünkü Hareketler")
 }
 
 @Composable
@@ -140,7 +142,14 @@ private fun AnaNavigasyon() {
         ) {
             composable(NavHedef.Ana.route) { HomeScreen() }
             composable(NavHedef.Istatistik.route) { StatsScreen() }
-            composable(NavHedef.Ayarlar.route) { SettingsScreen() }
+            composable(NavHedef.Ayarlar.route) {
+                SettingsScreen(
+                    onAktiviteGecmisiTiklandi = { navController.navigate(NavHedef.AktiviteGecmisi.route) }
+                )
+            }
+            composable(NavHedef.AktiviteGecmisi.route) {
+                ActivityLogScreen()
+            }
         }
     }
 }

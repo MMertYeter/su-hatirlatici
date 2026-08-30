@@ -1,5 +1,6 @@
 package com.mert.sutakip.ui.home
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,18 +26,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,7 +45,6 @@ import com.mert.sutakip.ui.components.ConfettiOverlay
 import com.mert.sutakip.ui.components.DailyProgressHeader
 import com.mert.sutakip.ui.components.GlassGrid
 import com.mert.sutakip.ui.theme.CoffeeFillColorDeep
-import kotlinx.coroutines.launch
 
 /** Ana ekranda hangi popup'ın açık olduğunu tutar. Aynı anda en fazla biri açık olabilir. */
 private enum class AcikPopup {
@@ -66,41 +62,11 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
-    val sonIslemVarMi by viewModel.sonIslemVarMi.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     var acikPopup by remember { mutableStateOf(AcikPopup.YOK) }
     var ozelMiktarIstegi by remember { mutableStateOf<OzelMiktarIstegi?>(null) }
 
-    LaunchedEffect(state.motivasyonMesaji) {
-        val mesaj = state.motivasyonMesaji
-        if (mesaj != null) {
-            scope.launch {
-                val sonuc = snackbarHostState.showSnackbar(
-                    message = mesaj,
-                    actionLabel = if (sonIslemVarMi) "Geri Al" else null,
-                    withDismissAction = true
-                )
-                if (sonuc == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                    viewModel.geriAl()
-                }
-                viewModel.mesajGosterildi()
-            }
-        }
-    }
-
-    Scaffold(
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-        }
-    ) { padding ->
+    Scaffold { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
@@ -113,6 +79,17 @@ fun HomeScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 24.dp, top = 20.dp)
+                )
+
+                // Motivasyon mesajı: en üstte sabit bir alan, kapatmaya gerek yok.
+                // Yeni ekleme geldiğinde otomatik olarak bir öncekinin yerini alır.
+                // Kutlama mesajı ViewModel tarafında en az 5 saniye korunur.
+                MotivationBanner(
+                    mesaj = state.motivasyonMesaji,
+                    kutlamaMi = state.kutlamaGoster,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
                 )
 
                 DailyProgressHeader(toplamMl = state.toplamMl, hedefMl = state.hedefMl)
@@ -257,6 +234,46 @@ fun HomeScreen(
                 ozelMiktarIstegi = null
             }
         )
+    }
+}
+
+/**
+ * Ana ekranın üstünde sabit duran motivasyon mesajı alanı. Kapatma tuşu yok — yeni bir
+ * ekleme/azaltma geldiğinde bir öncekinin yerini otomatik olarak alır. Mesaj yoksa (uygulama
+ * daha yeni açıldıysa) hiçbir şey göstermez, boşluk kaplamaz.
+ */
+@Composable
+private fun MotivationBanner(
+    mesaj: String?,
+    kutlamaMi: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (mesaj == null) return
+
+    val arkaplanRengi = if (kutlamaMi) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+    }
+
+    AnimatedContent(
+        targetState = mesaj,
+        label = "motivationMessage",
+        modifier = modifier
+    ) { gosterilenMesaj ->
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = arkaplanRengi,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = gosterilenMesaj,
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (kutlamaMi) FontWeight.Bold else FontWeight.Normal,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
     }
 }
 

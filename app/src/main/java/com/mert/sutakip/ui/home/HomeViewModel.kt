@@ -36,13 +36,20 @@ data class HomeUiState(
     // Özel miktar ekranındaki "Bugün X ml su/kahve içtiniz" önizlemesi için,
     // günün su ve kahve toplamları ayrı ayrı (toplamMl = gunlukSuMl + gunlukKahveMl).
     val gunlukSuMl: Int = 0,
-    val gunlukKahveMl: Int = 0
+    val gunlukKahveMl: Int = 0,
+    // motivasyonMesaji'nin state'e yazıldığı an; UI'da kutlama mesajının en az
+    // 5 saniye ekranda kalmasını sağlamak için kullanılır.
+    val mesajZamaniMs: Long = 0L
 )
 
 private data class TransientState(
     val sonDolanBardakIndex: Int = -1,
     val motivasyonMesaji: String? = null,
-    val kutlamaGoster: Boolean = false
+    val kutlamaGoster: Boolean = false,
+    // Bu mesajın state'e yazıldığı an (System.currentTimeMillis). UI tarafında,
+    // kutlama mesajının en az 5 saniye ekranda kalmasını garanti etmek için kullanılır
+    // (kutlama gösterilirken art arda yeni ekleme yapılsa bile mesaj hemen değişmesin diye).
+    val mesajZamaniMs: Long = 0L
 )
 
 private const val BARDAK_KAPASITESI_ML = 200
@@ -81,7 +88,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             sonIslemGeriAlinabilir = sonIslemVarMi,
             bardakDolumlari = bardakDolumlariniHesapla(kayitlar, profile.gunlukHedefMl),
             gunlukSuMl = kayitlar.filter { it.icecekTuru == IcecekTuru.SU }.sumOf { it.miktarMl }.coerceAtLeast(0),
-            gunlukKahveMl = kayitlar.filter { it.icecekTuru == IcecekTuru.KAHVE }.sumOf { it.miktarMl }.coerceAtLeast(0)
+            gunlukKahveMl = kayitlar.filter { it.icecekTuru == IcecekTuru.KAHVE }.sumOf { it.miktarMl }.coerceAtLeast(0),
+            mesajZamaniMs = transient.mesajZamaniMs
         )
     }.stateIn(
         scope = viewModelScope,
@@ -113,7 +121,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 MotivationMessages.rastgeleNormal(isim)
             }
 
-            _transientState.value = TransientState(sonDolanIndex, mesaj, sonuc.hedefTamamlandiMi)
+            // Şu an ekranda bir kutlama mesajı gösteriliyorsa ve üzerinden henüz 5 saniye
+            // geçmediyse, yeni (normal) mesaj onun yerini hemen almaz — kutlama mesajı
+            // garanti en az 5 saniye görünür kalır. Yeni ekleme de kutlamaysa (art arda
+            // günlük hedefi ikinci kez tamamlamak gibi bir durum olmaz ama teorik olarak)
+            // her zaman öncelik kutlamada kalır.
+            val mevcut = _transientState.value
+            val kutlamaKorumaSuresiMs = 5000L
+            val kutlamaHalaKorunuyorMu = mevcut.kutlamaGoster &&
+                (System.currentTimeMillis() - mevcut.mesajZamaniMs) < kutlamaKorumaSuresiMs
+
+            if (kutlamaHalaKorunuyorMu && !sonuc.hedefTamamlandiMi) {
+                // Bardak dolum animasyonu yine de güncellensin (kullanıcı görsel geri
+                // bildirim alsın), ama mesaj/kutlama alanına dokunulmaz.
+                _transientState.value = mevcut.copy(sonDolanBardakIndex = sonDolanIndex)
+            } else {
+                _transientState.value = TransientState(
+                    sonDolanBardakIndex = sonDolanIndex,
+                    motivasyonMesaji = mesaj,
+                    kutlamaGoster = sonuc.hedefTamamlandiMi,
+                    mesajZamaniMs = System.currentTimeMillis()
+                )
+            }
             _sonIslemVarMi.value = true
         }
     }
@@ -128,9 +157,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (miktarMl <= 0) return
         viewModelScope.launch {
             waterRepo.suAzalt(miktarMl, tur)
-            // Azaltma bardak dolum animasyonunu tetiklemez (dolma efekti sadece eklemede anlamlıdır),
-            // ama kullanıcı işlemi geri alabilsin diye kısa bir onay mesajı gösterilir.
-            _transientState.value = TransientState(motivasyonMesaji = "$miktarMl ml azaltıldı")
+
+            val turAdi = if (tur == IcecekTuru.KAHVE) "kahve" else "su"
+            val mevcut = _transientState.value
+            val kutlamaKorumaSuresiMs = 5000L
+            val kutlamaHalaKorunuyorMu = mevcut.kutlamaGoster &&
+                (System.currentTimeMillis() - mevcut.mesajZamaniMs) < kutlamaKorumaSuresiMs
+
+            if (!kutlamaHalaKorunuyorMu) {
+                _transientState.value = TransientState(
+                    motivasyonMesaji = "$miktarMl ml $turAdi azaltıldı",
+                    mesajZamaniMs = System.currentTimeMillis()
+                )
+            }
             _sonIslemVarMi.value = true
         }
     }
@@ -262,8 +301,4 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             copy(suOrani = (suOrani - miktar).coerceAtLeast(0f))
         }
-
-    fun mesajGosterildi() {
-        _transientState.value = _transientState.value.copy(motivasyonMesaji = null, kutlamaGoster = false)
-    }
 }

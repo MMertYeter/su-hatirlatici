@@ -29,3 +29,7 @@ val WaterFillColorDark = Color(0xFF4FC3F7)
 
 val CelebrationGold = Color(0xFFFFC107)
 val StreakFlame = Color(0xFFFF7043)
+
+// Aktivite log ekranı vurgu renkleri
+val LogEklemeYesil = Color(0xFF2E7D32)
+val LogAzaltmaKirmizi = Color(0xFFC62828)
