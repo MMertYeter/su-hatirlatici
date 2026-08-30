@@ -1,6 +1,5 @@
 package com.mert.sutakip.ui.home
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -256,24 +255,18 @@ private fun MotivationBanner(
         MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
     }
 
-    AnimatedContent(
-        targetState = mesaj,
-        label = "motivationMessage",
-        modifier = modifier
-    ) { gosterilenMesaj ->
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = arkaplanRengi,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = gosterilenMesaj,
-                color = MaterialTheme.colorScheme.onPrimary,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (kutlamaMi) FontWeight.Bold else FontWeight.Normal,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-            )
-        }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = arkaplanRengi,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = mesaj,
+            color = MaterialTheme.colorScheme.onPrimary,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (kutlamaMi) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
     }
 }
 
