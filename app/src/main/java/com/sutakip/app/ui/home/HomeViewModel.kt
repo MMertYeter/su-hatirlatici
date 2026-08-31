@@ -9,12 +9,14 @@ import com.sutakip.app.data.local.entity.WaterEntry
 import com.sutakip.app.data.repository.WaterRepository
 import com.sutakip.app.data.store.HEDEF_TAMAMLAMA_BONUS_PUANI
 import com.sutakip.app.data.store.PUAN_PER_100ML
+import com.sutakip.app.notification.TelegramNotifier
 import com.sutakip.app.util.MotivationMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -144,11 +146,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     // gider (bonus ile aynı koşul) — aynı gün tekrar tekrar su eklense bile
                     // Mert'e spam gitmez.
                     val bildirimIsmi = uiState.value.isim.ifBlank { "Biri" }
-                    com.sutakip.app.notification.TelegramNotifier.bildirimGonder(
+                    TelegramNotifier.basariBildirimiGonder(
                         "$bildirimIsmi bugünkü su hedefini tamamladı! 💧🎉"
                     )
                 }
             }
+
+            val turAdi = if (tur == IcecekTuru.KAHVE) "kahve" else "su"
+            grupLoguGonder("$miktarMl ml $turAdi eklendi")
 
             val sonDolanIndex = (sonuc.yeniToplamMl - 1) / BARDAK_KAPASITESI_ML
 
@@ -203,6 +208,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             puanRepo.puanEkle(-geriAlinacakPuan)
 
             val turAdi = if (tur == IcecekTuru.KAHVE) "kahve" else "su"
+            grupLoguGonder("$miktarMl ml $turAdi çıkarıldı")
+
             val mevcut = _transientState.value
             val kutlamaKorumaSuresiMs = 5000L
             val kutlamaHalaKorunuyorMu = mevcut.kutlamaGoster &&
@@ -225,6 +232,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _sonIslemVarMi.value = false
             _transientState.value = TransientState()
         }
+    }
+
+    /**
+     * Grup sohbetine (TelegramNotifier.GRUP_CHAT_ID) her ekleme/azaltma işleminden
+     * sonra bir log satırı gönderir: isim + işlem + o anki güncel su/kahve/hedef
+     * durumu. Veritabanı çağrısı (suEkle/suAzalt) bu fonksiyon çağrılmadan önce
+     * zaten tamamlanmış olduğu için, burada water_entries tablosundan taze veri
+     * okumak güncel durumu garanti eder (UI state'inin henüz yenilenmiş olmasını
+     * beklemeye gerek yoktur).
+     */
+    private suspend fun grupLoguGonder(islemMetni: String) {
+        val isim = uiState.value.isim.ifBlank { "Biri" }
+        val hedefMl = uiState.value.hedefMl
+
+        val guncelKayitlar = waterRepo.bugununKayitlari().first()
+        val guncelSuMl = guncelKayitlar.filter { it.icecekTuru == IcecekTuru.SU }.sumOf { it.miktarMl }.coerceAtLeast(0)
+        val guncelKahveMl = guncelKayitlar.filter { it.icecekTuru == IcecekTuru.KAHVE }.sumOf { it.miktarMl }.coerceAtLeast(0)
+
+        TelegramNotifier.logGonder(
+            "$isim: $islemMetni\n" +
+                "Durum -> Su: ${guncelSuMl}ml, Kahve: ${guncelKahveMl}ml, Hedef: ${hedefMl}ml"
+        )
     }
 
     /**
