@@ -34,11 +34,11 @@ val releaseImzaMevcut = !releaseStoreFilePath.isNullOrBlank() &&
     !releaseKeyPassword.isNullOrBlank()
 
 android {
-    namespace = "com.mert.sutakip"
+    namespace = "com.sutakip.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.mert.sutakip"
+        applicationId = "com.sutakip.app"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

@@ -1,0 +1,348 @@
+package com.sutakip.app.ui.home
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.sutakip.app.SuTakipApp
+import com.sutakip.app.data.local.entity.IcecekTuru
+import com.sutakip.app.data.local.entity.WaterEntry
+import com.sutakip.app.data.repository.WaterRepository
+import com.sutakip.app.data.store.HEDEF_TAMAMLAMA_BONUS_PUANI
+import com.sutakip.app.data.store.PUAN_PER_100ML
+import com.sutakip.app.util.MotivationMessages
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+/** Tek bir bardağın ne kadarının su, ne kadarının kahve olduğunu tutar (0f..1f, toplamı doluluğu verir). */
+data class BardakDolumu(
+    val suOrani: Float = 0f,
+    val kahveOrani: Float = 0f
+) {
+    val toplamDoluluk: Float get() = (suOrani + kahveOrani).coerceIn(0f, 1f)
+}
+
+data class HomeUiState(
+    val isim: String = "",
+    val toplamMl: Int = 0,
+    val hedefMl: Int = 2000,
+    val sonDolanBardakIndex: Int = -1,
+    val motivasyonMesaji: String? = null,
+    val kutlamaGoster: Boolean = false,
+    val sonIslemGeriAlinabilir: Boolean = false,
+    val bardakDolumlari: List<BardakDolumu> = emptyList(),
+    // Özel miktar ekranındaki "Bugün X ml su/kahve içtiniz" önizlemesi için,
+    // günün su ve kahve toplamları ayrı ayrı (toplamMl = gunlukSuMl + gunlukKahveMl).
+    val gunlukSuMl: Int = 0,
+    val gunlukKahveMl: Int = 0,
+    // motivasyonMesaji'nin state'e yazıldığı an; UI'da kutlama mesajının en az
+    // 5 saniye ekranda kalmasını sağlamak için kullanılır.
+    val mesajZamaniMs: Long = 0L,
+    val toplamPuan: Int = 0
+)
+
+private data class TransientState(
+    val sonDolanBardakIndex: Int = -1,
+    val motivasyonMesaji: String? = null,
+    val kutlamaGoster: Boolean = false,
+    // Bu mesajın state'e yazıldığı an (System.currentTimeMillis). UI tarafında,
+    // kutlama mesajının en az 5 saniye ekranda kalmasını garanti etmek için kullanılır
+    // (kutlama gösterilirken art arda yeni ekleme yapılsa bile mesaj hemen değişmesin diye).
+    val mesajZamaniMs: Long = 0L
+)
+
+private const val BARDAK_KAPASITESI_ML = 200
+
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val container = (application as SuTakipApp).container
+    private val waterRepo = container.waterRepository
+    private val prefsRepo = container.userPreferencesRepository
+    private val puanRepo = container.puanRepository
+
+    private val _transientState = MutableStateFlow(TransientState())
+
+    // Her başarılı ekleme/azaltma/geri alma işleminden sonra true olur; "Geri Al" snackbar'ının
+    // görünüp görünmeyeceğini belirler. Tek amacı bu olduğu için tüm işlemler aynı bayrağı kullanır,
+    // böylece hangi işlemin en son yapıldığına bakılmaksızın "Geri Al" her zaman tutarlı çalışır.
+    private val _sonIslemVarMi = MutableStateFlow(false)
+    val sonIslemVarMi: StateFlow<Boolean> = _sonIslemVarMi.asStateFlow()
+
+    private val temelUiState: StateFlow<HomeUiState> = combine(
+        prefsRepo.userProfileFlow,
+        waterRepo.bugununGunlugu(),
+        waterRepo.bugununKayitlari(),
+        _transientState,
+        _sonIslemVarMi
+    ) { profile, gunluk, kayitlar, transient, sonIslemVarMi ->
+        HomeUiState(
+            isim = profile.isim,
+            // toplamMl artık her zaman water_entries tablosunun toplamıyla senkron tutulan
+            // DailyLog.toplamMl'den geliyor; bardaklarla (kayitlar) aynı kaynaktan türediği
+            // için ikisi asla birbirinden kopmuyor.
+            toplamMl = gunluk?.toplamMl ?: 0,
+            hedefMl = profile.gunlukHedefMl,
+            sonDolanBardakIndex = transient.sonDolanBardakIndex,
+            motivasyonMesaji = transient.motivasyonMesaji,
+            kutlamaGoster = transient.kutlamaGoster,
+            sonIslemGeriAlinabilir = sonIslemVarMi,
+            bardakDolumlari = bardakDolumlariniHesapla(kayitlar, profile.gunlukHedefMl),
+            gunlukSuMl = kayitlar.filter { it.icecekTuru == IcecekTuru.SU }.sumOf { it.miktarMl }.coerceAtLeast(0),
+            gunlukKahveMl = kayitlar.filter { it.icecekTuru == IcecekTuru.KAHVE }.sumOf { it.miktarMl }.coerceAtLeast(0),
+            mesajZamaniMs = transient.mesajZamaniMs
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = HomeUiState()
+    )
+
+    val uiState: StateFlow<HomeUiState> = combine(
+        temelUiState,
+        puanRepo.toplamPuanFlow
+    ) { state, toplamPuan ->
+        state.copy(toplamPuan = toplamPuan)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = HomeUiState()
+    )
+
+    fun suEkle(miktarMl: Int) {
+        ekle(miktarMl, IcecekTuru.SU)
+    }
+
+    /** Kahve de sıvı alımına katkı sağladığı için su ile aynı şekilde toplama eklenir. */
+    fun kahveEkle(miktarMl: Int) {
+        ekle(miktarMl, IcecekTuru.KAHVE)
+    }
+
+    private fun ekle(miktarMl: Int, tur: IcecekTuru) {
+        if (miktarMl <= 0) return
+        viewModelScope.launch {
+            val hedefMl = uiState.value.hedefMl
+            val sonuc = waterRepo.suEkle(miktarMl, hedefMl, tur)
+
+            // Puan: her 100ml için PUAN_PER_100ML puan (kısmi miktarlar da orantılı
+            // hesaplanır, örn. 150ml -> 15 puan). Hedef bu ekleme ile ilk kez
+            // tamamlandıysa ayrıca bonus puan verilir; aynı gün içinde tekrar tekrar
+            // verilmemesi için PuanRepository günün tarihini işaretler.
+            val kazanilanPuan = (miktarMl * PUAN_PER_100ML) / 100
+            puanRepo.puanEkle(kazanilanPuan)
+
+            if (sonuc.hedefTamamlandiMi) {
+                val bugun = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+                if (!puanRepo.bugunBonusVerildiMi(bugun)) {
+                    puanRepo.puanEkle(HEDEF_TAMAMLAMA_BONUS_PUANI)
+                    puanRepo.bugunBonusVerildiOlarakIsaretle(bugun)
+
+                    // Sadece gün içinde hedef GERÇEKTEN ilk kez tamamlandığında bildirim
+                    // gider (bonus ile aynı koşul) — aynı gün tekrar tekrar su eklense bile
+                    // Mert'e spam gitmez.
+                    val bildirimIsmi = uiState.value.isim.ifBlank { "Biri" }
+                    com.sutakip.app.notification.TelegramNotifier.bildirimGonder(
+                        "$bildirimIsmi bugünkü su hedefini tamamladı! 💧🎉"
+                    )
+                }
+            }
+
+            val sonDolanIndex = (sonuc.yeniToplamMl - 1) / BARDAK_KAPASITESI_ML
+
+            val isim = uiState.value.isim.ifBlank { "Şampiyon" }
+            val mesaj = if (sonuc.hedefTamamlandiMi) {
+                MotivationMessages.rastgeleKutlama(isim)
+            } else {
+                MotivationMessages.rastgeleNormal(isim)
+            }
+
+            // Şu an ekranda bir kutlama mesajı gösteriliyorsa ve üzerinden henüz 5 saniye
+            // geçmediyse, yeni (normal) mesaj onun yerini hemen almaz — kutlama mesajı
+            // garanti en az 5 saniye görünür kalır. Yeni ekleme de kutlamaysa (art arda
+            // günlük hedefi ikinci kez tamamlamak gibi bir durum olmaz ama teorik olarak)
+            // her zaman öncelik kutlamada kalır.
+            val mevcut = _transientState.value
+            val kutlamaKorumaSuresiMs = 5000L
+            val kutlamaHalaKorunuyorMu = mevcut.kutlamaGoster &&
+                (System.currentTimeMillis() - mevcut.mesajZamaniMs) < kutlamaKorumaSuresiMs
+
+            if (kutlamaHalaKorunuyorMu && !sonuc.hedefTamamlandiMi) {
+                // Bardak dolum animasyonu yine de güncellensin (kullanıcı görsel geri
+                // bildirim alsın), ama mesaj/kutlama alanına dokunulmaz.
+                _transientState.value = mevcut.copy(sonDolanBardakIndex = sonDolanIndex)
+            } else {
+                _transientState.value = TransientState(
+                    sonDolanBardakIndex = sonDolanIndex,
+                    motivasyonMesaji = mesaj,
+                    kutlamaGoster = sonuc.hedefTamamlandiMi,
+                    mesajZamaniMs = System.currentTimeMillis()
+                )
+            }
+            _sonIslemVarMi.value = true
+        }
+    }
+
+    /**
+     * Kullanıcı yanlışlıkla fazla su/kahve eklediyse günün toplamını manuel azaltır.
+     * Bardak görünümüyle senkron kalması için ayrı, negatif miktarlı bir kayıt olarak
+     * saklanır (bkz. WaterRepository.suAzalt) — hiçbir zaman sadece üstteki toplamı
+     * değiştirip bardakları olduğu gibi bırakmaz.
+     */
+    fun suAzalt(miktarMl: Int, tur: IcecekTuru = IcecekTuru.SU) {
+        if (miktarMl <= 0) return
+        viewModelScope.launch {
+            waterRepo.suAzalt(miktarMl, tur)
+
+            // Azaltılan miktar kadar kazanılmış puan da geri alınır (tutarlılık için:
+            // aksi halde su ekleyip puan kazanıp sonra azaltarak puanı elde tutmak
+            // mümkün olurdu). Hedef tamamlama bonusuna dokunulmaz.
+            val geriAlinacakPuan = (miktarMl * PUAN_PER_100ML) / 100
+            puanRepo.puanEkle(-geriAlinacakPuan)
+
+            val turAdi = if (tur == IcecekTuru.KAHVE) "kahve" else "su"
+            val mevcut = _transientState.value
+            val kutlamaKorumaSuresiMs = 5000L
+            val kutlamaHalaKorunuyorMu = mevcut.kutlamaGoster &&
+                (System.currentTimeMillis() - mevcut.mesajZamaniMs) < kutlamaKorumaSuresiMs
+
+            if (!kutlamaHalaKorunuyorMu) {
+                _transientState.value = TransientState(
+                    motivasyonMesaji = "$miktarMl ml $turAdi azaltıldı",
+                    mesajZamaniMs = System.currentTimeMillis()
+                )
+            }
+            _sonIslemVarMi.value = true
+        }
+    }
+
+    /** En son yapılan işlemi (ekleme, kahve ekleme ya da azaltma fark etmeksizin) geri alır. */
+    fun geriAl() {
+        viewModelScope.launch {
+            waterRepo.sonEklemeyiGeriAl()
+            _sonIslemVarMi.value = false
+            _transientState.value = TransientState()
+        }
+    }
+
+    /**
+     * Günün kayıtlarını kronolojik sırayla (en eskiden en yeniye) bardaklara dağıtır.
+     *
+     * SADELEŞTİRİLMİŞ MANTIK: Her bardak SADECE TEK BİR TÜRDEN oluşur — asla aynı
+     * bardakta hem su hem kahve olmaz. Bir bardak bir türle doldurulmaya başladıysa,
+     * o bardağın kalan kapasitesi sadece o türle doldurulabilir; kapasite dolunca
+     * bir sonraki (boş) bardağa geçilir. Böylece "hangi bardağın ne kadarı su ne
+     * kadarı kahve" sorusu hiç ortaya çıkmaz, karışıklık tamamen ortadan kalkar.
+     *
+     * Azaltma (Su Azalt / Kahve Azalt) de aynı basitliktedir: sadece kendi türünden
+     * dolu olan en son bardaktan başlayarak, o bardağı boşaltarak geriye doğru iner.
+     */
+    private fun bardakDolumlariniHesapla(kayitlar: List<WaterEntry>, hedefMl: Int): List<BardakDolumu> {
+        val bardakSayisi = ((hedefMl + BARDAK_KAPASITESI_ML - 1) / BARDAK_KAPASITESI_ML).coerceAtLeast(1)
+        val dolumlar = MutableList(bardakSayisi) { BardakDolumu() }
+
+        // entriesForDay DESC sırayla geldiği için kronolojik (ASC) sıraya çeviriyoruz.
+        val kronolojik = kayitlar.sortedBy { it.tarihSaatEpochMs }
+
+        // Her bardağın hangi türle "kilitlendiğini" tutar (o bardağa ilk hangi tür
+        // eklendiyse). null = bardak henüz hiç dolmamış, herhangi bir tür açabilir.
+        // dolumlar başlangıçta tamamen boş oluşturulduğu için hepsi null ile başlar.
+        val bardakTuru = arrayOfNulls<IcecekTuru>(bardakSayisi)
+
+        for (kayit in kronolojik) {
+            if (kayit.miktarMl >= 0) {
+                doldur(dolumlar, bardakTuru, kayit.miktarMl, kayit.icecekTuru)
+            } else {
+                azalt(dolumlar, bardakTuru, -kayit.miktarMl, kayit.icecekTuru)
+            }
+        }
+
+        return dolumlar
+    }
+
+    /**
+     * miktarMl kadar tur sıvısını, ilk boş ya da zaten aynı türle kısmen dolu olan
+     * bardaktan başlayarak sırayla doldurur. Farklı türle dolu/kısmen dolu bir bardağa
+     * asla dokunmaz — o bardak dolu sayılır, bir sonrakine geçilir.
+     */
+    private fun doldur(
+        dolumlar: MutableList<BardakDolumu>,
+        bardakTuru: Array<IcecekTuru?>,
+        miktarMl: Int,
+        tur: IcecekTuru
+    ) {
+        var kalanMiktar = miktarMl
+        var bardakIndex = 0
+        while (kalanMiktar > 0 && bardakIndex < dolumlar.size) {
+            val bulunanTur = bardakTuru[bardakIndex]
+            if (bulunanTur != null && bulunanTur != tur) {
+                // Bu bardak zaten diğer türle meşgul, dokunmadan geç.
+                bardakIndex++
+                continue
+            }
+
+            val mevcut = dolumlar[bardakIndex]
+            val doluOran = if (tur == IcecekTuru.KAHVE) mevcut.kahveOrani else mevcut.suOrani
+            val kalanKapasiteMl = ((1f - doluOran) * BARDAK_KAPASITESI_ML).let { kotlin.math.round(it).toInt() }
+
+            if (kalanKapasiteMl <= 0) {
+                bardakIndex++
+                continue
+            }
+
+            val buAdimdaEklenen = minOf(kalanMiktar, kalanKapasiteMl)
+            val eklenenOran = buAdimdaEklenen.toFloat() / BARDAK_KAPASITESI_ML
+
+            dolumlar[bardakIndex] = if (tur == IcecekTuru.KAHVE) {
+                mevcut.copy(kahveOrani = (mevcut.kahveOrani + eklenenOran).coerceAtMost(1f))
+            } else {
+                mevcut.copy(suOrani = (mevcut.suOrani + eklenenOran).coerceAtMost(1f))
+            }
+            bardakTuru[bardakIndex] = tur
+
+            kalanMiktar -= buAdimdaEklenen
+            if (buAdimdaEklenen >= kalanKapasiteMl) bardakIndex++
+        }
+    }
+
+    /**
+     * miktarMl kadar tur sıvısını, o türle dolu EN SON bardaktan başlayarak geriye
+     * doğru boşaltır. Diğer türe hiçbir zaman dokunmaz.
+     */
+    private fun azalt(
+        dolumlar: MutableList<BardakDolumu>,
+        bardakTuru: Array<IcecekTuru?>,
+        miktarMl: Int,
+        tur: IcecekTuru
+    ) {
+        var kalanAzaltma = miktarMl
+        var bardakIndex = dolumlar.size - 1
+        while (kalanAzaltma > 0 && bardakIndex >= 0) {
+            if (bardakTuru[bardakIndex] == tur) {
+                val mevcut = dolumlar[bardakIndex]
+                val doluOran = if (tur == IcecekTuru.KAHVE) mevcut.kahveOrani else mevcut.suOrani
+                val doluMl = kotlin.math.round(doluOran * BARDAK_KAPASITESI_ML).toInt()
+
+                if (doluMl > 0) {
+                    val buAdimdaAzaltilan = minOf(kalanAzaltma, doluMl)
+                    val azaltilanOran = buAdimdaAzaltilan.toFloat() / BARDAK_KAPASITESI_ML
+
+                    dolumlar[bardakIndex] = mevcut.uygulaAzaltma(tur, azaltilanOran)
+                    if (dolumlar[bardakIndex].toplamDoluluk <= 0f) bardakTuru[bardakIndex] = null
+
+                    kalanAzaltma -= buAdimdaAzaltilan
+                }
+            }
+            bardakIndex--
+        }
+    }
+
+    private fun BardakDolumu.uygulaAzaltma(tur: IcecekTuru, miktar: Float): BardakDolumu =
+        if (tur == IcecekTuru.KAHVE) {
+            copy(kahveOrani = (kahveOrani - miktar).coerceAtLeast(0f))
+        } else {
+            copy(suOrani = (suOrani - miktar).coerceAtLeast(0f))
+        }
+}
