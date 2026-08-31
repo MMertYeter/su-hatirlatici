@@ -139,6 +139,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 if (!puanRepo.bugunBonusVerildiMi(bugun)) {
                     puanRepo.puanEkle(HEDEF_TAMAMLAMA_BONUS_PUANI)
                     puanRepo.bugunBonusVerildiOlarakIsaretle(bugun)
+
+                    // Sadece gün içinde hedef GERÇEKTEN ilk kez tamamlandığında bildirim
+                    // gider (bonus ile aynı koşul) — aynı gün tekrar tekrar su eklense bile
+                    // Mert'e spam gitmez.
+                    val bildirimIsmi = uiState.value.isim.ifBlank { "Biri" }
+                    com.mert.sutakip.notification.TelegramNotifier.bildirimGonder(
+                        "$bildirimIsmi bugünkü su hedefini tamamladı! 💧🎉"
+                    )
                 }
             }
 
