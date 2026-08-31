@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -36,6 +37,7 @@ import com.mert.sutakip.data.datastore.TemaModu
 import com.mert.sutakip.notification.ReminderScheduler
 import com.mert.sutakip.ui.home.HomeScreen
 import com.mert.sutakip.ui.log.ActivityLogScreen
+import com.mert.sutakip.ui.magaza.MagazaScreen
 import com.mert.sutakip.ui.onboarding.OnboardingScreen
 import com.mert.sutakip.ui.settings.SettingsScreen
 import com.mert.sutakip.ui.stats.StatsScreen
@@ -90,17 +92,23 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private sealed class NavHedef(val route: String, val etiket: String) {
-    object Ana : NavHedef("ana", "Ana Sayfa")
-    object Istatistik : NavHedef("istatistik", "İstatistik")
-    object Ayarlar : NavHedef("ayarlar", "Ayarlar")
-    object AktiviteGecmisi : NavHedef("aktivite_gecmisi", "Bugünkü Hareketler")
+/** Alt navigasyon bar'ında görünen sekmeler. Sadece bunlar 'when (hedef)' bloklarında ele alınır. */
+private sealed class AltBarHedefi(val route: String, val etiket: String) {
+    object Ana : AltBarHedefi("ana", "Ana Sayfa")
+    object Istatistik : AltBarHedefi("istatistik", "İstatistik")
+    object Magaza : AltBarHedefi("magaza", "Mağaza")
+    object Ayarlar : AltBarHedefi("ayarlar", "Ayarlar")
+}
+
+/** Alt bar'da görünmeyen, sadece başka bir ekrandan navigate edilen "detay" route'ları. */
+private object DetayRota {
+    const val AKTIVITE_GECMISI = "aktivite_gecmisi"
 }
 
 @Composable
 private fun AnaNavigasyon() {
     val navController = rememberNavController()
-    val hedefler = listOf(NavHedef.Ana, NavHedef.Istatistik, NavHedef.Ayarlar)
+    val hedefler = listOf(AltBarHedefi.Ana, AltBarHedefi.Istatistik, AltBarHedefi.Magaza, AltBarHedefi.Ayarlar)
 
     Scaffold(
         bottomBar = {
@@ -114,10 +122,10 @@ private fun AnaNavigasyon() {
                         icon = {
                             Icon(
                                 imageVector = when (hedef) {
-                                    NavHedef.Ana -> Icons.Filled.Home
-                                    NavHedef.Istatistik -> Icons.Filled.BarChart
-                                    NavHedef.Ayarlar -> Icons.Filled.Settings
-                                    NavHedef.AktiviteGecmisi -> Icons.Filled.Settings // alt bar'da hiç görünmez, sadece exhaustive olması için
+                                    AltBarHedefi.Ana -> Icons.Filled.Home
+                                    AltBarHedefi.Istatistik -> Icons.Filled.BarChart
+                                    AltBarHedefi.Magaza -> Icons.Filled.ShoppingCart
+                                    AltBarHedefi.Ayarlar -> Icons.Filled.Settings
                                 },
                                 contentDescription = hedef.etiket
                             )
@@ -138,17 +146,18 @@ private fun AnaNavigasyon() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = NavHedef.Ana.route,
+            startDestination = AltBarHedefi.Ana.route,
             modifier = Modifier.padding(padding)
         ) {
-            composable(NavHedef.Ana.route) { HomeScreen() }
-            composable(NavHedef.Istatistik.route) { StatsScreen() }
-            composable(NavHedef.Ayarlar.route) {
+            composable(AltBarHedefi.Ana.route) { HomeScreen() }
+            composable(AltBarHedefi.Istatistik.route) { StatsScreen() }
+            composable(AltBarHedefi.Magaza.route) { MagazaScreen() }
+            composable(AltBarHedefi.Ayarlar.route) {
                 SettingsScreen(
-                    onAktiviteGecmisiTiklandi = { navController.navigate(NavHedef.AktiviteGecmisi.route) }
+                    onAktiviteGecmisiTiklandi = { navController.navigate(DetayRota.AKTIVITE_GECMISI) }
                 )
             }
-            composable(NavHedef.AktiviteGecmisi.route) {
+            composable(DetayRota.AKTIVITE_GECMISI) {
                 ActivityLogScreen()
             }
         }

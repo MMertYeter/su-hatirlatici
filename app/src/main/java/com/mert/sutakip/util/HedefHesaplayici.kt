@@ -8,7 +8,7 @@ import kotlin.math.roundToInt
  *
  * temel_ml = kilo(kg) x yaş/cinsiyete göre katsayı
  * BMI'a göre +/- 150ml ayarı
- * 50ml'e yuvarlama, 1500-4000ml aralığında sınırlama
+ * 50ml'e yuvarlama, 1200-4000ml aralığında sınırlama
  *
  * Bu tıbbi bir tavsiye değildir, kaba bir tahmindir.
  */
@@ -52,8 +52,8 @@ object HedefHesaplayici {
         // 50ml'e yuvarla
         val yuvarlanmis = (temelMl / 50.0).roundToInt() * 50
 
-        // 1500-4000 aralığında sınırla
-        return yuvarlanmis.coerceIn(1500, 4000)
+        // 1200-4000 aralığında sınırla
+        return yuvarlanmis.coerceIn(1200, 4000)
     }
 
     /** Bardak sayısı: hedef / 200ml, yukarı yuvarlanır. */

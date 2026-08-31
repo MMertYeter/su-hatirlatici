@@ -153,8 +153,8 @@ fun SettingsScreen(
                 Slider(
                     value = profile.gunlukHedefMl.toFloat(),
                     onValueChange = { viewModel.hedefiManuelAyarla(it.toInt()) },
-                    valueRange = 1500f..4000f,
-                    steps = 49 // ~50ml adımlar
+                    valueRange = 1200f..4000f,
+                    steps = 55 // ~50ml adımlar ((4000-1200)/50 - 1)
                 )
                 Text(
                     "Bardak boyutu sabit 200ml (gösterim amaçlı, değiştirilemez)",

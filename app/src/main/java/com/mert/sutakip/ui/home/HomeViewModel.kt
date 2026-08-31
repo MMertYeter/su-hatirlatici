@@ -7,6 +7,8 @@ import com.mert.sutakip.SuTakipApp
 import com.mert.sutakip.data.local.entity.IcecekTuru
 import com.mert.sutakip.data.local.entity.WaterEntry
 import com.mert.sutakip.data.repository.WaterRepository
+import com.mert.sutakip.data.store.HEDEF_TAMAMLAMA_BONUS_PUANI
+import com.mert.sutakip.data.store.PUAN_PER_100ML
 import com.mert.sutakip.util.MotivationMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,7 +41,8 @@ data class HomeUiState(
     val gunlukKahveMl: Int = 0,
     // motivasyonMesaji'nin state'e yazıldığı an; UI'da kutlama mesajının en az
     // 5 saniye ekranda kalmasını sağlamak için kullanılır.
-    val mesajZamaniMs: Long = 0L
+    val mesajZamaniMs: Long = 0L,
+    val toplamPuan: Int = 0
 )
 
 private data class TransientState(
@@ -59,6 +62,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as SuTakipApp).container
     private val waterRepo = container.waterRepository
     private val prefsRepo = container.userPreferencesRepository
+    private val puanRepo = container.puanRepository
 
     private val _transientState = MutableStateFlow(TransientState())
 
@@ -68,7 +72,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _sonIslemVarMi = MutableStateFlow(false)
     val sonIslemVarMi: StateFlow<Boolean> = _sonIslemVarMi.asStateFlow()
 
-    val uiState: StateFlow<HomeUiState> = combine(
+    private val temelUiState: StateFlow<HomeUiState> = combine(
         prefsRepo.userProfileFlow,
         waterRepo.bugununGunlugu(),
         waterRepo.bugununKayitlari(),
@@ -97,6 +101,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = HomeUiState()
     )
 
+    val uiState: StateFlow<HomeUiState> = combine(
+        temelUiState,
+        puanRepo.toplamPuanFlow
+    ) { state, toplamPuan ->
+        state.copy(toplamPuan = toplamPuan)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = HomeUiState()
+    )
+
     fun suEkle(miktarMl: Int) {
         ekle(miktarMl, IcecekTuru.SU)
     }
@@ -111,6 +126,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val hedefMl = uiState.value.hedefMl
             val sonuc = waterRepo.suEkle(miktarMl, hedefMl, tur)
+
+            // Puan: her 100ml için PUAN_PER_100ML puan (kısmi miktarlar da orantılı
+            // hesaplanır, örn. 150ml -> 15 puan). Hedef bu ekleme ile ilk kez
+            // tamamlandıysa ayrıca bonus puan verilir; aynı gün içinde tekrar tekrar
+            // verilmemesi için PuanRepository günün tarihini işaretler.
+            val kazanilanPuan = (miktarMl * PUAN_PER_100ML) / 100
+            puanRepo.puanEkle(kazanilanPuan)
+
+            if (sonuc.hedefTamamlandiMi) {
+                val bugun = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+                if (!puanRepo.bugunBonusVerildiMi(bugun)) {
+                    puanRepo.puanEkle(HEDEF_TAMAMLAMA_BONUS_PUANI)
+                    puanRepo.bugunBonusVerildiOlarakIsaretle(bugun)
+                }
+            }
 
             val sonDolanIndex = (sonuc.yeniToplamMl - 1) / BARDAK_KAPASITESI_ML
 
@@ -157,6 +187,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (miktarMl <= 0) return
         viewModelScope.launch {
             waterRepo.suAzalt(miktarMl, tur)
+
+            // Azaltılan miktar kadar kazanılmış puan da geri alınır (tutarlılık için:
+            // aksi halde su ekleyip puan kazanıp sonra azaltarak puanı elde tutmak
+            // mümkün olurdu). Hedef tamamlama bonusuna dokunulmaz.
+            val geriAlinacakPuan = (miktarMl * PUAN_PER_100ML) / 100
+            puanRepo.puanEkle(-geriAlinacakPuan)
 
             val turAdi = if (tur == IcecekTuru.KAHVE) "kahve" else "su"
             val mevcut = _transientState.value
