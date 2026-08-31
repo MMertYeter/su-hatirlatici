@@ -201,19 +201,69 @@ fun SettingsScreen(
                         Text(
                             "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} telefonlar, izinler açık olsa bile " +
                                 "pil tasarrufu için uygulamayı arka planda kapatabiliyor. Bildirimlerin düzenli " +
-                                "gelmesi için bu telefonda ayrıca \"otomatik başlatma\" veya \"arka planda çalışma\" " +
-                                "iznini de açman gerekiyor.",
+                                "gelmesi için aşağıdaki ayarların hepsini kontrol etmen gerekiyor.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "1. Otomatik başlatma / arka planda çalışma",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Su Hatırlatıcı'nın telefon yeniden başladığında ve arka planda kendi kendine çalışmasına izin ver.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         Button(
-                            onClick = {
-                                BatteryOptimizationHelper.ureticiyeOzelAyarlariAc(context)
-                            },
+                            onClick = { BatteryOptimizationHelper.ureticiyeOzelAyarlariAc(context) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Telefon Ayarlarını Aç")
+                            Text("Otomatik Başlatma Ayarını Aç")
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "2. Pil kullanımında kısıtlama olmasın",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Açılan listeden Su Hatırlatıcı'yı bulup pil kullanımını \"Kısıtlama yok\" / \"Sınırsız\" olarak ayarla.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { BatteryOptimizationHelper.pilKullanimiKisitlamasiniAc(context) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Pil Kullanımı Ayarını Aç")
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "3. Android'in standart pil optimizasyonu",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Yukarıdaki ikisine ek olarak, Android'in kendi \"pil optimizasyonu yok say\" iznini de vermen önerilir.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { BatteryOptimizationHelper.pilOptimizasyonuMuafiyetiIste(context) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Pil Optimizasyonundan Muaf Tut")
                         }
                     }
                 }
