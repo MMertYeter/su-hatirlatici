@@ -23,23 +23,30 @@ object MagazaUrunleri {
         MagazaUrunu(
             id = "surpriz_hediye",
             ad = "Sürpriz Hediye",
-            aciklama = "Senden bir sürpriz hediye isteme hakkı.",
-            puanMaliyeti = 1000,
+            aciklama = "Sürpriz hediye isteme hakkı.",
+            puanMaliyeti = 250,
             emoji = "🎁"
         ),
         MagazaUrunu(
             id = "yemek_ismarlama",
             ad = "Yemek Ismarlama",
-            aciklama = "Senden bir yemek ısmarlamanı isteme hakkı.",
-            puanMaliyeti = 1500,
+            aciklama = "Yemek ısmarlatma hakkı.",
+            puanMaliyeti = 500,
             emoji = "🍔"
         ),
         MagazaUrunu(
             id = "istek_urun",
-            ad = "İstediğim Bir Ürün",
-            aciklama = "Senden dilediğim bir ürünü isteme hakkı (fiyatı makul olmalı 😄).",
-            puanMaliyeti = 2000,
+            ad = "İstediğin Bir Ürün",
+            aciklama = "İstediğin bi ürünü aldırma hakkı.",
+            puanMaliyeti = 750,
             emoji = "🛍️"
+        )
+        MagazaUrunu(
+            id = "odev_yardimi",
+            ad = "Ödev Yaptırma Hakkı",
+            aciklama = "Ödevlerinden birini baştan sona yaptırma hakkı.",
+            puanMaliyeti = 750,
+            emoji = "📖"
         )
     )
 
