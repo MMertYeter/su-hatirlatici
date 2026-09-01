@@ -49,6 +49,7 @@ object MagazaUrunleri {
             emoji = "📖"
         )
     )
+    )
 
     fun bul(id: String): MagazaUrunu? = urunler.find { it.id == id }
 }
