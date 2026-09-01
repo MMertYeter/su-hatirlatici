@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.sutakip.app.SuTakipApp
 import com.sutakip.app.data.local.entity.EnvanterOgesi
 import com.sutakip.app.data.store.MagazaUrunleri
+import com.sutakip.app.notification.TelegramNotifier
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -28,6 +30,7 @@ class MagazaViewModel(application: Application) : AndroidViewModel(application) 
     private val container = (application as SuTakipApp).container
     private val puanRepo = container.puanRepository
     private val envanterDao = container.envanterDao
+    private val prefsRepo = container.userPreferencesRepository
 
     val urunler = MagazaUrunleri.urunler
 
@@ -45,7 +48,8 @@ class MagazaViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * Ürünü puanla satın alır (talep eder): yeterli puan varsa puanı düşer ve
      * envantere yeni bir kayıt ekler. callback ile sonucu (başarılı/yetersiz puan)
-     * UI'a bildirir.
+     * UI'a bildirir. Başarılı olursa grup sohbetine "kim, ne aldı, kalan puanı ne"
+     * bilgisini de gönderir.
      */
     fun urunTalepEt(urunId: String, onSonuc: (SatinAlmaSonucu) -> Unit) {
         val urun = MagazaUrunleri.bul(urunId) ?: return
@@ -62,6 +66,13 @@ class MagazaViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 )
                 onSonuc(SatinAlmaSonucu.Basarili(urun.ad))
+
+                val isim = prefsRepo.userProfileFlow.first().isim.ifBlank { "Biri" }
+                val kalanPuan = puanRepo.toplamPuanFlow.first()
+                TelegramNotifier.logGonder(
+                    "$isim mağazadan \"${urun.ad}\" aldı (${urun.puanMaliyeti} puan)\n" +
+                        "Kalan puan: $kalanPuan"
+                )
             } else {
                 onSonuc(SatinAlmaSonucu.YetersizPuan)
             }
