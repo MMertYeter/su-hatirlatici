@@ -40,7 +40,7 @@ object MagazaUrunleri {
             aciklama = "İstediğin bi ürünü aldırma hakkı.",
             puanMaliyeti = 750,
             emoji = "🛍️"
-        )
+        ),
         MagazaUrunu(
             id = "odev_yardimi",
             ad = "Ödev Yaptırma Hakkı",
@@ -49,7 +49,7 @@ object MagazaUrunleri {
             emoji = "📖"
         )
     )
-    )
+    
 
     fun bul(id: String): MagazaUrunu? = urunler.find { it.id == id }
 }
