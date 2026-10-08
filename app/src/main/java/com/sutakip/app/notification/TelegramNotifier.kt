@@ -36,9 +36,9 @@ import java.net.URLEncoder
  */
 object TelegramNotifier {
 
-    private const val BOT_TOKEN = "8889853904:AAHN8AHQ6b9v1hwRu6gim385hTZef0oocBE"
-    private const val KISISEL_CHAT_ID = "1119734344"
-    private const val GRUP_CHAT_ID = "-1004346828887"
+    private const val BOT_TOKEN = "TELEGRAM_BOT_TOKEN_BURAYA"
+    private const val KISISEL_CHAT_ID = "8903332029"
+    private const val GRUP_CHAT_ID = "-1003760989523"
     private const val TAG = "TelegramNotifier"
 
     /** Hedef tamamlama başarı bildirimi — sadece Mert'in kişisel sohbetine gider. */
