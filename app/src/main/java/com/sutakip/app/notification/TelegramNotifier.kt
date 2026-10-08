@@ -21,8 +21,8 @@ import java.net.URLEncoder
  */
 /**
  * Telegram'a iki farklı hedefe mesaj gönderir:
- * 1. Kişisel sohbet (Mert'in kendisi): sadece "hedef tamamlandı" başarı bildirimi.
- * 2. Grup sohbeti: her su/kahve ekleme-azaltma işleminde, isim + o anki durum
+ * 1. Sihirbaz'ın kişisel sohbeti: sadece "hedef tamamlandı" başarı bildirimi.
+ * 2. SuTakipLog grubu: her su/kahve ekleme-azaltma işleminde, isim + o anki durum
  *    (kaç ml su, kaç ml kahve, hedef ne kadar) — bir log akışı gibi.
  *
  * Bu tamamen opsiyonel, "en iyi çaba" (best-effort) bir özelliktir: internet yoksa,
@@ -36,12 +36,12 @@ import java.net.URLEncoder
  */
 object TelegramNotifier {
 
-    private const val BOT_TOKEN = "8889853904:AAHN8AHQ6b9v1hwRu6gim385hTZef0oocBE"
-    private const val KISISEL_CHAT_ID = "1119734344"
-    private const val GRUP_CHAT_ID = "-1004346828887"
+    private const val BOT_TOKEN = "8671506422:AAGGKSvnOA-W2yv9GkLgU18bNKzFtFI4KhU"
+    private const val KISISEL_CHAT_ID = "8903332029"   // Sihirbaz (zafer bildirimleri)
+    private const val GRUP_CHAT_ID = "-1003760989523"   // SuTakipLog grubu (loglar)
     private const val TAG = "TelegramNotifier"
 
-    /** Hedef tamamlama başarı bildirimi — sadece Mert'in kişisel sohbetine gider. */
+    /** Hedef tamamlama başarı bildirimi — sadece Sihirbaz'ın kişisel sohbetine gider. */
     suspend fun basariBildirimiGonder(mesaj: String) {
         gonder(KISISEL_CHAT_ID, mesaj)
     }
